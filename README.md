@@ -1,0 +1,1 @@
+The "Board Game Analysis" project aims to explore and analyze data from BoardGameGeek (BGG), one of the largest online communities for board game enthusiasts. This project will delve into the characteristics of board games and their relationships with user ratings, providing insights into what makes a game highly rated and popular.
