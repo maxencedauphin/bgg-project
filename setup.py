@@ -5,7 +5,7 @@ with open("requirements.txt") as f:
     content = f.readlines()
 requirements = [x.strip() for x in content if "git+" not in x]
 
-setup(name='bgg-project',
+setup(name='bgg_project',
       version="0.0.1",
       description="BGG project - Batch #1835 Data Science Flex",
       license="MIT",
