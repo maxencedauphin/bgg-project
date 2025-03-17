@@ -57,7 +57,7 @@ def preprocess_and_train() -> None:
 
     cv_score = cross_val_score(pipeline_baseline, X_train, y_train, cv=5).mean()
 
-    print(f"✅ Baseline Cross-validation score with random_forest_model is {cv_score}")
+    print(f"✅ Baseline Cross-validation score with DecisionTreeRegressor is {cv_score}")
 
     # Train the model
     pipeline_baseline.fit(X_train, y_train)
