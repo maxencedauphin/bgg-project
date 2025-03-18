@@ -1,5 +1,8 @@
-pytest
-pylint
+#API
+fastapi
+uvicorn
+
+#ML
 ipdb
 jupyterlab
 numpy
@@ -7,3 +10,10 @@ pandas
 matplotlib
 seaborn
 scikit-learn
+
+#.env
+python-dotenv
+
+#TEST
+pytest
+pylint
