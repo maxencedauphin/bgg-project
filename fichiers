@@ -1,0 +1,5 @@
+[33mf66925f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mstructure-update[m[33m, [m[1;31morigin/structure-update[m[33m)[m BGG data analysis Streamlit application
+[33m8147e1e[m[33m ([m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m Merge pull request #1 from maxencedauphin/project_structure
+[33m2faa045[m - change project name to bgg-project - update Readme file with Non-Commercial Use and Attribution information for BGG XML AP - fix uvicorn command
+[33m274dc9e[m initial project structure
+[33m762d7c3[m python-version used
