@@ -9,8 +9,8 @@ RUN pip install --trusted-host=pypi.org --trusted-host=files.pythonhosted.org --
 RUN pip install --trusted-host=pypi.org --trusted-host=files.pythonhosted.org -e .
 
 # Run container locally
-# CMD uvicorn bgg-project.api_file:app --reload --host 0.0.0.0
+CMD uvicorn bgg-project.api_file:app --reload --host 0.0.0.0
 
 # Run container deployed -> GCP
-CMD uvicorn bgg-project.api_file:app --reload --host 0.0.0.0 --port $PORT
+# CMD uvicorn bgg-project.api_file:app --reload --host 0.0.0.0 --port $PORT
 
