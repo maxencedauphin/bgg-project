@@ -8,6 +8,18 @@ The "Board Game Analysis" project aims to explore and analyze data from BoardGam
 *Attribution*: This package uses data from BoardGameGeek. We acknowledge and appreciate their contribution to the board gaming community. Please ensure that any public-facing use of this package includes attribution to BoardGameGeek as the source of the data and includes the BoardGameGeek logo linked back to https://boardgamegeek.com.
 
 
+## Start API locally (in development)
+You need to install Uvicorn if you're running it for the first time:
+```shell
+pip install uvicorn
+```
+
+Then you can start the API from within the `bgg-project` folder:
+
+```shell
+uvicorn api_file:app --reload
+```
+
 ## Start the API container image in Docker or GCP
 
 ### Start containter local into Docker
