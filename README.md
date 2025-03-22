@@ -14,7 +14,7 @@ You need to install Uvicorn if you're running it for the first time:
 pip install uvicorn
 ```
 
-Then you can start the API from within the `bgg-project` folder:
+Then you can start the API from within the `bgg_project` folder:
 
 ```shell
 uvicorn api_file:app --reload
