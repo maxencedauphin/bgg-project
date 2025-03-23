@@ -28,19 +28,24 @@ def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Index, pd.Index]:
     df["mechanics"] = df["mechanics"].fillna("unspecified mechanic")
     df["domains"] = df["domains"].fillna("unspecified domain")
 
-    # Rework mechanics and domains columns which contains a list of strings
-    df["mechanics"] = df["mechanics"].apply(clean)
-    df["domains"] = df["domains"].apply(clean)
+    # Vectorizing the objets columns
+    columns_to_vectorize = ['mechanics', 'domains']
+    vectorized_columns = {}
 
-    # NEW : vectorized mechanics and domains + their associated columns
-    df, mechanics_columns = vectorizing_column(df, 'mechanics')
-    df, domains_columns = vectorizing_column(df, 'domains')
+    for col in columns_to_vectorize:
+        # Rework mechanics and domains columns which contains a list of strings
+        df[col] = df[col].apply(clean)
+
+        # NEW : vectorized mechanics and domains + their associated columns
+        df, vectorized_cols = vectorizing_column(df, col)
+        vectorized_columns[col] = vectorized_cols
+
     rows, col = df.shape
     print(f"After cleaning data, total rows : {rows}, total columns : {col}")
 
     print("✅ data cleaned")
 
-    return df, mechanics_columns, domains_columns
+    return df, vectorized_columns['mechanics'], vectorized_columns['domains']
 
 
 def clean(text):
