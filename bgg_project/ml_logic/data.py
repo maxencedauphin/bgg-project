@@ -5,7 +5,15 @@ from sklearn.feature_extraction.text import CountVectorizer
 from bgg_project.params import *
 
 def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Index, pd.Index]:
-
+    """
+    Clean and preprocess the input DataFrame by:
+    - Transforming column names
+    - Removing duplicates
+    - Dropping unnecessary columns
+    - Creating new column 'game_age'
+    - Handling missing data
+    - Vectorizing categorical data
+    """
     rows, col = df.shape
     print(f"Before cleaning data, total rows : {rows}, total columns : {col}")
 
@@ -15,11 +23,13 @@ def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Index, pd.Index]:
     # Remove duplicates
     df = df.drop_duplicates()
 
-    # Drop game id column
-    df.drop(columns=['id'], inplace=True)
+    # Creating new column game_age to indicate the age of each game based on the year it was published
+    current_year = 2025
+    df['game_age'] = current_year - df['year_published']
 
-    # Drop game name column, only to fast test with basemodel
-    df.drop(columns=['name'], inplace=True)
+    # Dropping unnecessary columns
+    columns_to_drop = ['id', 'name', 'year_published']
+    df.drop(columns=columns_to_drop, inplace=True)
 
     # Drop NaN in owned_users column
     df = df[df['owned_users'].notna()]
