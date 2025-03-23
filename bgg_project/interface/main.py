@@ -34,8 +34,8 @@ def preprocess_and_train() -> None:
     data = pd.read_csv(filepath, encoding='ISO-8859-1')
     print("✅ data loaded from Kaggle")
 
-    # Clean data using data.py
-    data = clean_data(data)
+    # Clean data using data.py, and extract mechanics and domains columns names
+    data, mechanics_columns, domains_columns = clean_data(data)
 
     # We want to predict Average Ratings
     X = data.drop('rating_average', axis=1)
