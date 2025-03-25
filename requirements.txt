@@ -10,9 +10,13 @@ pandas
 matplotlib
 seaborn
 scikit-learn
+xgboost
+streamlit
+plotly
 
 #.env
 python-dotenv
+
 
 #TEST
 pytest
