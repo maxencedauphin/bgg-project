@@ -1,5 +1,8 @@
-pytest
-pylint
+#API
+fastapi
+uvicorn
+
+#ML
 ipdb
 jupyterlab
 numpy
@@ -10,3 +13,11 @@ scikit-learn
 xgboost
 streamlit
 plotly
+
+#.env
+python-dotenv
+
+
+#TEST
+pytest
+pylint
