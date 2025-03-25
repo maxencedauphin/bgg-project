@@ -9,7 +9,7 @@ import requests  # For HTTP requests
 import zipfile  # For extracting zip files
 import io  # For data stream handling
 
-# To run the streamlit app, type: streamlit run /home/tahar/code/app.py
+# to run the streamlit app : streamlit run app.py or  streamlit run /home/maxd/code/maxencedauphin/bgg-project/app.py
 
 # Configure the page appearance and layout
 st.set_page_config(page_title="BGG Project", page_icon="🎲", layout="wide")  # Set title, icon and wide layout
@@ -525,6 +525,6 @@ def main():
         Maxence, Mónica, Tahar, Konstantin, Bernhard.
         """)
 
-# to run the streamlit app : streamlit run /home/maxd/code/maxencedauphin/bgg-project/app.py
+# to run the streamlit app : streamlit run app.py or  streamlit run /home/maxd/code/maxencedauphin/bgg-project/app.py
 if __name__ == "__main__":
     main()  # Run the main function when the script is executed
