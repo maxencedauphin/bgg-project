@@ -32,7 +32,7 @@ def preprocess_and_train() -> None:
 
     filepath = os.path.join(LOCAL_DATA_PATH, "BGG_Data_Set.csv")
     data = pd.read_csv(filepath, encoding='ISO-8859-1')
-    print("✅ data loaded from Kaggle")
+    print("✅ Data loaded from Kaggle")
 
     # Clean data using data.py, and extract mechanics and domains columns names
     data, mechanics_columns, domains_columns = clean_data(data)
@@ -45,7 +45,7 @@ def preprocess_and_train() -> None:
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     X_train.shape, X_test.shape, y_train.shape, y_test.shape
-    print("Shapes of Training and Test Sets:")
+    print("✅ Shapes of Training and Test Sets:")
     print(f"X_train shape: {X_train.shape}")
     print(f"X_test shape: {X_test.shape}")
     print(f"y_train shape: {y_train.shape}")
@@ -74,13 +74,4 @@ def preprocess_and_train() -> None:
     save_model(pipeline_baseline)
 
 if __name__ == '__main__':
-    try:
-        preprocess_and_train()
-    except:
-        import sys
-        import traceback
-
-        import ipdb
-        extype, value, tb = sys.exc_info()
-        traceback.print_exc()
-        ipdb.post_mortem(tb)
+    preprocess_and_train()
