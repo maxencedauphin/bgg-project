@@ -14,10 +14,10 @@ You need to install Uvicorn if you're running it for the first time:
 pip install uvicorn
 ```
 
-Then you can start the API from within the `bgg_project` folder:
+Then you can start the API from within the `package_folder` folder:
 
 ```shell
-uvicorn api_file:app --reload
+uvicorn package_folder/api_file:app --reload
 ```
 
 ## Start the API container image in Docker or GCP
