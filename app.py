@@ -4,8 +4,16 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import os
 import subprocess
+import pickle
+from pathlib import Path
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.compose import make_column_selector, ColumnTransformer
+from sklearn.pipeline import make_pipeline
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 # Configure the page appearance and layout
 st.set_page_config(page_title="BGG Project", page_icon="🎲", layout="wide")
@@ -27,23 +35,78 @@ def add_logo_to_sidebar():
 # Function to load and prepare the board game dataset
 @st.cache_data
 def load_data():
-    # Get the current path and build the raw_data path
-    current_file_path = os.path.abspath('')
-    project_root = os.path.dirname(current_file_path)
-    raw_data_path = os.path.join(project_root, "raw_data")
-    os.makedirs(raw_data_path, exist_ok=True)
-       
+    # Define paths using pathlib
+    current_file_path = Path(__file__).resolve()  # Get absolute path of current file
+    project_root = current_file_path.parent.parent  # Go up two levels to project root
+    raw_data_path = project_root / "raw_data"  # Path to raw_data directory
+    raw_data_path.mkdir(exist_ok=True)  # Create directory if it doesn't exist
+            
     # Download and extract data
     kaggle_data_path = "https://www.kaggle.com/api/v1/datasets/download/melissamonfared/board-games"
-    archive_path = os.path.join(raw_data_path, "archive.zip")  
-    
+    archive_path = raw_data_path / "archive.zip"  # Path to zip file
+        
     subprocess.run(f"curl -L -o {archive_path} {kaggle_data_path}", shell=True)
-    subprocess.run(f"unzip -o {archive_path} -d {raw_data_path}", shell=True)  
-        # Load the data
-    filepath = os.path.join(raw_data_path, "BGG_Data_Set.csv")
+    subprocess.run(f"unzip -o {archive_path} -d {raw_data_path}", shell=True)
+        
+    # Load the data
+    filepath = raw_data_path / "BGG_Data_Set.csv"  # Path to CSV file
     df = pd.read_csv(filepath, encoding='ISO-8859-1')
     
     return df
+
+# Function to load or create prediction model and prepare test data
+@st.cache_resource
+def load_prediction_model(df):
+    # Identify the target column
+    rating_col = 'Rating Average' if 'Rating Average' in df.columns else 'rating'
+    name_col = 'Name' if 'Name' in df.columns else 'name'
+    
+    # Drop columns that shouldn't be used for prediction
+    if name_col in df.columns:
+        X = df.drop([name_col, rating_col], axis=1)
+    else:
+        X = df.drop([rating_col], axis=1)
+    
+    y = df[rating_col]
+    
+    # Get game names if available
+    if name_col in df.columns:
+        game_names = df[name_col].values
+    else:
+        game_names = [f"Game {i}" for i in range(len(df))]
+    
+    # Split data for training and testing
+    X_train, X_test, y_train, y_test, names_train, names_test = train_test_split(
+        X, y, game_names, test_size=0.2, random_state=42)
+    
+    # Create preprocessing pipeline
+    preproc = ColumnTransformer([
+        ("num", make_pipeline(SimpleImputer(), MinMaxScaler()), make_column_selector(dtype_include=np.number)),
+        ("cat", make_pipeline(SimpleImputer(strategy="most_frequent"), 
+                             OneHotEncoder(handle_unknown="ignore", sparse_output=False)), 
+         make_column_selector(dtype_exclude=np.number))
+    ]).set_output(transform="pandas")
+    
+    # Create and train the model
+    pipeline = make_pipeline(preproc, DecisionTreeRegressor(max_depth=5))
+    pipeline.fit(X_train, y_train)
+    
+    # Make predictions on test set - exactly like in the notebook
+    y_pred = pipeline.predict(X_test)
+    
+    # Calculate metrics - compatible with older scikit-learn versions
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)  # Using np.sqrt instead of squared=False parameter
+    
+    metrics = {
+        'mae': mae,
+        'mse': mse,
+        'rmse': rmse
+    }
+    
+    # Return everything needed for both metrics display and prediction
+    return pipeline, metrics, X_test, y_test, y_pred, names_test
 
 # Function to create different types of visualizations
 def create_visualization(df, chart_type, **kwargs):
@@ -103,6 +166,7 @@ def main():
     # Load data
     with st.spinner("Loading data..."):
         df = load_data()
+        model, metrics, X_test, y_test, y_pred, game_names = load_prediction_model(df)
 
     # Navigation sidebar
     page = st.sidebar.radio("Choose a section:",
@@ -117,9 +181,16 @@ def main():
 
     # HOME PAGE
     if page == "Home":
+         # Welcome message and project description
         st.write("""
         ## Welcome to our Board Game Analysis Project!
-        This dashboard presents a comprehensive analysis of BoardGameGeek (BGG) data.
+        This dashboard presents a comprehensive analysis of BoardGameGeek (BGG) data,
+        the world's largest board game database.
+        ### Project Goals:
+        - Analyze trends in the board game industry
+        - Identify factors that influence game popularity
+        - Predict potential success of new games
+        - Recommend games based on user preferences
         """)
 
         # Display key metrics
@@ -136,40 +207,10 @@ def main():
         except:
             st.warning("Error calculating metrics")
 
-        # Show a preview of the dataset
-        st.subheader("Data Preview")
-        st.dataframe(df.head())
-
     # DATA EXPLORATION PAGE
     elif page == "Data Exploration":
-        st.header("📊 Data Exploration")
-        
-        # Filters
-        col1, col2 = st.columns(2)
-        try:
-            with col1:
-                if year_col in df.columns:
-                    year_min, year_max = int(df[year_col].min()), int(df[year_col].max())
-                    year_range = st.slider("Publication Year", year_min, year_max, (year_min, year_max))
-                else:
-                    year_range = (1900, 2025)
-            with col2:
-                rating_range = st.slider("Rating Range", 0.0, 10.0, (0.0, 10.0))
-
-            # Apply filters
-            if year_col in df.columns:
-                filtered_df = df[(df[year_col] >= year_range[0]) & (df[year_col] <= year_range[1]) &
-                                (df[rating_col] >= rating_range[0]) & (df[rating_col] <= rating_range[1])]
-            else:
-                filtered_df = df[(df[rating_col] >= rating_range[0]) & (df[rating_col] <= rating_range[1])]
-        except:
-            filtered_df = df
-
-        # Display filtered data
-        st.subheader(f"Filtered Data ({len(filtered_df)} games)")
-        st.dataframe(filtered_df)
-        st.subheader("Descriptive Statistics")
-        st.write(filtered_df.describe())
+        st.header("📊 Data Exploration")        
+        st.write(df.describe())
 
     # VISUALIZATIONS PAGE
     elif page == "Visualizations":
@@ -198,49 +239,64 @@ def main():
 
         st.plotly_chart(fig, use_container_width=True)
 
-    # PREDICTIVE ANALYSIS PAGE
+    # PREDICTIVE ANALYSIS PAGE 
     elif page == "Predictive Analysis":
         st.header("🔮 Predictive Analysis")
         
-        # Input form
+        # Display model evaluation metrics
+        st.subheader("Model Evaluation Metrics")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("MAE", f"{metrics['mae']:.3f}")
+        col2.metric("MSE", f"{metrics['mse']:.3f}")
+        col3.metric("RMSE", f"{metrics['rmse']:.3f}")
+        
+                
+        # Select game index
+        max_index = len(y_test) - 1
+        selected_index = st.slider("Select game index", 0, max_index, 0)
+        
+        # Display the selected game's actual and predicted ratings
         col1, col2 = st.columns(2)
-        with col1:
-            complexity = st.slider("Complexity (1-5)", 1.0, 5.0, 2.5, 0.1)
-            min_players = st.number_input("Minimum Players", 1, 10, 2)
-        with col2:
-            max_players = st.number_input("Maximum Players", min_players, 20, 4)
-            year = st.number_input("Publication Year", 1900, 2025, 2023)
-
-        category = st.selectbox("Main Category",
-                              ["Strategy", "Family", "Thematic", "Party", "Abstract", "Wargame", "Cooperative"])
-
-        if st.button("Predict Rating"):
-            # Simple prediction model
-            predicted_rating = 5.5 + (complexity * 0.5) + (min_players * 0.1) + (year - 2000) * 0.01
-            predicted_rating = min(10, max(1, predicted_rating))
-            st.success(f"Predicted Rating: {predicted_rating:.2f}/10")
-
-            # Radar chart
-            categories = ['Complexity', 'Min Players', 'Max Players', 'Modernity']
-            values_game = [complexity/5, min_players/10, max_players/20, (year-1980)/45]
-            values_avg = [0.5, 0.3, 0.4, 0.5]  # Default values
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatterpolar(r=values_game, theta=categories, fill='toself', name='Your Game'))
-            fig.add_trace(go.Scatterpolar(r=values_avg, theta=categories, fill='toself', name='Average'))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-                             showlegend=True, title="Comparison with Average Games")
-            st.plotly_chart(fig, use_container_width=True)
-
-    # ABOUT PAGE
+        
+        # Get the game name if available
+        game_name = game_names[selected_index] if selected_index < len(game_names) else f"Game {selected_index}"
+        
+        # Display game information
+        st.subheader(f"Selected Game: {game_name}")
+        col1.metric("Actual Rating", f"{y_test.iloc[selected_index]:.2f}")
+        col2.metric("Predicted Rating", f"{y_pred[selected_index]:.2f}")
+        
+        # Calculate and display prediction error
+        error = abs(y_test.iloc[selected_index] - y_pred[selected_index])
+        st.metric("Prediction Error", f"{error:.2f}")
+        
+ # ABOUT PAGE
     else:
         st.header("ℹ️ About the Project")
         st.write("""
         ## BGG Project
         This project analyzes BoardGameGeek data to better understand the board game industry.
+
+        ### Technologies Used:
+        - Python 🐍
+        - Pandas & NumPy for data analysis 📊
+        - Streamlit for the user interface 🌊
+        - Plotly & Matplotlib for visualizations 📈
+        - Scikit-learn for predictive models 🤖
+
+        ### Data Sources:
+        - Data collected from BoardGameGeek database 🎲
         
-        #### Team members:
-        Maxence, Mónica, Tahar, Konstantin, Bernhard.
+        
+        #### Lead TA 👨‍🏫
+        - Cynthia Siew-Tu
+        
+        #### Team members 👨‍💼👩‍💼
+        - Maxence Dauphin
+        - Mónica Costa
+        - Tahar Guenfoud
+        - Konstantin
+        - Bernhard Riemer
         """)
 
 # Run the application
