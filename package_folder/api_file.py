@@ -10,7 +10,7 @@ from datetime import datetime
 app = FastAPI(debug=True)
 
 # Model path
-models_path = os.path.expanduser("~/code/maxencedauphin/bgg-project/models")
+models_path = os.path.expanduser("models")
 pickle_file_path = os.path.join(models_path, "pipeline_baseline.pkl")
 
 # Load the model
@@ -128,4 +128,4 @@ def predict(
     # Make the prediction
     pred = model.predict(model_input_data)[0]
 
-    return {'The predicted rating is': round(float(pred), 2)} # Returns a number
+    return {'prediction': round(float(pred), 2)} # Returns a number

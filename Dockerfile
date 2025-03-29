@@ -12,15 +12,15 @@ RUN pip install --trusted-host=pypi.org --trusted-host=files.pythonhosted.org --
 RUN pip install --trusted-host=pypi.org --trusted-host=files.pythonhosted.org -e .
 
 # Make script executable
-RUN chmod +x start.sh
+##RUN chmod +x start.sh
 
 # Expose both ports
 EXPOSE 8501 8000
 
-CMD ["./start.sh"]
+##CMD ["./start.sh"]
 
 ## Run container locally
-#CMD uvicorn package_folder.api_file:app --reload --host 0.0.0.0
+CMD uvicorn package_folder.api_file:app --reload --host 0.0.0.0
 
 # Run container deployed -> GCP
 # CMD uvicorn package_folder.api_file:app --reload --host 0.0.0.0 --port $PORT

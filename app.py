@@ -333,7 +333,7 @@ def main():
         # Process form submission
         if submitted:
 
-            load_prediction_from_remote(year, min_players, max_players, play_time, min_age, complexity, mechanics, selected_domain)
+            prediction = load_prediction_from_remote(year, min_players, max_players, play_time, min_age, complexity, mechanics, selected_domain)
 
             # # Prepare input data for prediction with variable values
             # import random
@@ -361,7 +361,7 @@ def main():
             # predicted_rating = predict_game_rating(model, input_data)
             #
             # # Display prediction result
-            # st.success(f"Predicted Rating: {predicted_rating:.2f}/10")
+            st.success(f"Predicted Rating: {prediction:.2f}/10")
                         
            
 
@@ -409,7 +409,7 @@ def load_prediction_from_remote(year_published: int, player_min: int, player_max
     response = requests.get(url=url, params=params)
 
     if response.status_code == 200:
-        return response.json()
+        return response.json()['prediction']
     elif response.status_code == 422:
         print("Request failed:", response.status_code)
         print(response.json())
@@ -417,7 +417,6 @@ def load_prediction_from_remote(year_published: int, player_min: int, player_max
     else:
         print("Request failed:", response.status_code)
         print(response.text)
-
 
 
 # Run the application
