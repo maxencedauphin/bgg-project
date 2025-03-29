@@ -9,6 +9,8 @@ The "Board Game Analysis" project aims to explore and analyze data from BoardGam
 
 
 ## Start API locally (in development)
+
+### Setup (only once)
 You need to install Uvicorn if you're running it for the first time:
 ```shell
 pip install uvicorn
@@ -16,8 +18,10 @@ pip install uvicorn
 
 Then you can start the API from within the `package_folder` folder:
 
+### Start DEV 
 ```shell
-uvicorn package_folder/api_file:app --reload
+uvicorn package_folder/api_file:app --reload &&
+streamlit run app.py   
 ```
 
 ## Start the API container image in Docker or GCP

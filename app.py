@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
 import plotly.express as px
 import plotly.graph_objects as go
 import subprocess
@@ -236,7 +237,7 @@ def main():
 
     # DATA EXPLORATION PAGE
     elif page == "Data Exploration":
-        st.header("📊 Data Exploration")        
+        st.header("📊 Data Exploration")
         st.write(df.describe())
 
     # VISUALIZATIONS PAGE
@@ -250,10 +251,10 @@ def main():
             numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
             col1, col2 = st.columns(2)
             with col1:
-                x_col = st.selectbox("X Variable", numeric_cols, 
+                x_col = st.selectbox("X Variable", numeric_cols,
                                    index=numeric_cols.index(year_col) if year_col in numeric_cols else 0)
             with col2:
-                y_col = st.selectbox("Y Variable", numeric_cols, 
+                y_col = st.selectbox("Y Variable", numeric_cols,
                                    index=numeric_cols.index(rating_col) if rating_col in numeric_cols else 0)
             fig = create_visualization(df, chart_type, x_col=x_col, y_col=y_col)
 
@@ -331,33 +332,36 @@ def main():
         
         # Process form submission
         if submitted:
-            # Prepare input data for prediction with variable values
-            import random
-            
-            # Create a dictionary with input data
-            input_data = {
-                # Original columns with form values
-                min_players_col: min_players,
-                max_players_col: max_players,
-                play_time_col: play_time,
-                min_age_col: min_age,
-                complexity_col: complexity,
-                mechanics_col: mechanics,
-                domains_col: selected_domain,
-                year_col: year,
-                
-                # Add missing columns required by the model with variable values
-                'ID': random.randint(1, 1000),  # Random ID
-                'BGG Rank': random.randint(1, 5000),  # Random rank
-                'Owned Users': random.randint(100, 50000),  # Random number of users owning the game
-                'Users Rated': random.randint(50, 10000)  # Random number of users who rated the game
-            }
-                        
-            # Make prediction
-            predicted_rating = predict_game_rating(model, input_data)
-            
-            # Display prediction result
-            st.success(f"Predicted Rating: {predicted_rating:.2f}/10")
+
+            load_prediction_from_remote(year, min_players, max_players, play_time, min_age, complexity, mechanics, selected_domain)
+
+            # # Prepare input data for prediction with variable values
+            # import random
+            #
+            # # Create a dictionary with input data
+            # input_data = {
+            #     # Original columns with form values
+            #     min_players_col: min_players,
+            #     max_players_col: max_players,
+            #     play_time_col: play_time,
+            #     min_age_col: min_age,
+            #     complexity_col: complexity,
+            #     mechanics_col: mechanics,
+            #     domains_col: selected_domain,
+            #     year_col: year,
+            #
+            #     # Add missing columns required by the model with variable values
+            #     'ID': random.randint(1, 1000),  # Random ID
+            #     'BGG Rank': random.randint(1, 5000),  # Random rank
+            #     'Owned Users': random.randint(100, 50000),  # Random number of users owning the game
+            #     'Users Rated': random.randint(50, 10000)  # Random number of users who rated the game
+            # }
+            #
+            # # Make prediction
+            # predicted_rating = predict_game_rating(model, input_data)
+            #
+            # # Display prediction result
+            # st.success(f"Predicted Rating: {predicted_rating:.2f}/10")
                         
            
 
@@ -389,6 +393,32 @@ def main():
         - Konstantin
         - Bernhard Riemer
         """)
+
+def load_prediction_from_remote(year_published: int, player_min: int, player_max: int, play_time_min: int, age_min: int, complexity: float, mechanics: list[str], domains: str) :
+    params={
+        'year_published': year_published,
+        'player_min': player_min,
+        'player_max': player_max,
+        'play_time': play_time_min,
+        'age_min': age_min,
+        'complexity': complexity,
+        'mechanics': mechanics,
+        'domains': domains
+    }
+    url='http://0.0.0.0:8000/predict'
+    response = requests.get(url=url, params=params)
+
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code == 422:
+        print("Request failed:", response.status_code)
+        print(response.json())
+        return None
+    else:
+        print("Request failed:", response.status_code)
+        print(response.text)
+
+
 
 # Run the application
 if __name__ == "__main__":
