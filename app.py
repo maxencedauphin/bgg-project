@@ -44,6 +44,7 @@ def load_data():
         project_root / "bgg-project" / "raw_data" / "BGG_Data_Set.csv",
         project_root / "notebooks" / "raw_data" / "BGG_Data_Set.csv",
         project_root / "bgg_project" / "raw_data" / "BGG_Data_Set.csv",
+        project_root / "bgg_project" / "BGG_Data_Set.csv",
         project_root / "BGG_Data_Set.csv"  # Try in the root directory as well
     ]
     
