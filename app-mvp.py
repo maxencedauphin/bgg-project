@@ -1,20 +1,6 @@
 # Import necessary libraries for the application
 import streamlit as st
-import pandas as pd
-import numpy as np
 import requests
-import plotly.express as px
-import plotly.graph_objects as go
-import subprocess
-import pickle
-from pathlib import Path
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.compose import make_column_selector, ColumnTransformer
-from sklearn.pipeline import make_pipeline
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 # Configure the page appearance and layout
 st.set_page_config(page_title="BGG Project", page_icon="🎲", layout="wide")
@@ -140,7 +126,7 @@ def load_prediction_from_remote(year_published: int, player_min: int, player_max
         'mechanics': mechanics,
         'domains': domains
     }
-    url='http://0.0.0.0:8000/predict'
+    url='https://apibgg-942635860173.europe-west1.run.app/predict'
 
     try:
         response = requests.get(url=url, params=params, timeout=5)

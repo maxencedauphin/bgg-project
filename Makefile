@@ -2,7 +2,7 @@
 #################### PACKAGE ACTIONS ###################
 reinstall_package:
 	@pip uninstall -y bgg_project || :
-	@pip install -e .
+	@pip install --trusted-host=pypi.org --trusted-host=files.pythonhosted.org -e .
 
 
 run main:
