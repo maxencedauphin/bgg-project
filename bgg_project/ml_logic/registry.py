@@ -4,7 +4,7 @@ import pickle
 
 from bgg_project.params import *
 
-def save_model(model):
+def save_model(model, model_type='model'):
     """
     Save trained model locally
     """
@@ -13,12 +13,14 @@ def save_model(model):
 
     timestamp = time.strftime("%Y%m%d-%H%M%S")
 
-    pickle_file_path = os.path.join(LOCAL_MODELS_PATH, f"model_{timestamp}.pkl")
+    filename = f"{model_type}_{timestamp}.pkl"
+
+    pickle_path = os.path.join(LOCAL_MODELS_PATH, filename)
 
     # Export Pipeline as pickle file
-    with open(pickle_file_path, "wb") as file:
+    with open(pickle_path, "wb") as file:
         pickle.dump(model, file)
 
-    print(f"✅ Model saved locally to: {pickle_file_path}")
+    print(f"✅ Model saved as {filename}")
 
     return None

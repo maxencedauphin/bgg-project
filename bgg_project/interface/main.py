@@ -1,21 +1,21 @@
 import os
 import subprocess
+import argparse
 import numpy as np
 import pandas as pd
 
 import warnings
 warnings.filterwarnings("ignore")
 
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import mean_absolute_error, mean_squared_error
-
+from sklearn.model_selection import train_test_split
 from bgg_project.params import *
 from bgg_project.ml_logic.data import clean_data
 from bgg_project.ml_logic.preprocessor import preprocess_features
-from bgg_project.ml_logic.model import random_forest_model
+from bgg_project.ml_logic.model import train_xgboost
+from bgg_project.ml_logic.model import train_all_models
 from bgg_project.ml_logic.registry import save_model
 
-def preprocess_and_train() -> None:
+def preprocess_and_train(model_type='all_models') -> None:
     """
     - Query the raw dataset from Kaggle
     - Save result as a local CSV
@@ -53,25 +53,24 @@ def preprocess_and_train() -> None:
 
     preproc_baseline = preprocess_features()
 
-    pipeline_baseline = random_forest_model(preproc_baseline)
+    if model_type == 'xgboost':
+        print("\n🚀 Training XGBoost only")
+        best_model = train_xgboost(preproc_baseline, X_train, y_train, X_test, y_test)
+    elif model_type == 'xgboost_grid':
+        print("\n🚀 Training XGBoost with GridSearchCV")
+        best_model = train_xgboost(preproc_baseline, X_train, y_train, X_test, y_test, grid_search=True)
+    else:
+        print("\n🚀 Training all models")
+        best_model = train_all_models(preproc_baseline, X_train, y_train, X_test, y_test)
 
-    cv_score = cross_val_score(pipeline_baseline, X_train, y_train, cv=5).mean()
+    save_model(best_model, model_type=model_type)
 
-    print(f"✅ Baseline Cross-validation score with DecisionTreeRegressor is {cv_score}")
-
-    # Train the model
-    pipeline_baseline.fit(X_train, y_train)
-    print(f"✅ Model trained")
-
-    y_pred = pipeline_baseline.predict(X_test)
-
-    mae = mean_absolute_error(y_test, y_pred)
-    mse = mean_squared_error(y_test, y_pred)
-    rmse = mse ** 0.5
-
-    print(f"✅ MAE: {mae}, MSE: {mse}, RMSE: {rmse}")
-
-    save_model(pipeline_baseline)
 
 if __name__ == '__main__':
-    preprocess_and_train()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', type=str, default='all_models',
+                       choices=['all_models', 'xgboost', 'xgboost_grid'],
+                       help='Model training mode')
+    args = parser.parse_args()
+
+    preprocess_and_train(args.model)
