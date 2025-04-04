@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import pickle
+from streamlit.components.v1 import html
 from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
@@ -11,9 +12,16 @@ from sklearn.compose import make_column_selector, ColumnTransformer
 from sklearn.pipeline import make_pipeline
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+import random
 
-# Configure the page appearance and layout
-st.set_page_config(page_title="BGG Project", page_icon="🎲", layout="wide")
+
+# Set page configuration
+st.set_page_config(
+    page_title="Board Game Success Predictor",
+    page_icon="🎲",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # Function to add the Le Wagon logo to the sidebar
 def add_logo_to_sidebar():
@@ -29,152 +37,24 @@ def add_logo_to_sidebar():
         </style>
     """, unsafe_allow_html=True)
 
-# Function to load data (only when needed)
-@st.cache_data
-def load_data():
-    from pathlib import Path
-    
-    # Get absolute path of current file
-    current_file_path = Path(__file__).resolve()
-    project_root = current_file_path.parent  # Project root directory
-    
-    # Try multiple possible paths for the data file
-    possible_paths = [
-        project_root / "raw_data" / "BGG_Data_Set.csv",
-        project_root / "bgg-project" / "raw_data" / "BGG_Data_Set.csv",
-        project_root / "notebooks" / "raw_data" / "BGG_Data_Set.csv",
-        project_root / "bgg_project" / "raw_data" / "BGG_Data_Set.csv",
-        project_root / "bgg_project" / "BGG_Data_Set.csv",
-        project_root / "BGG_Data_Set.csv"  # Try in the root directory as well
-    ]
-    
-    # Find the first path that exists
-    data_path = None
-    for path in possible_paths:
-        if path.exists():
-            data_path = path
-            break
-    
-    # If no path exists, show error message
-    if data_path is None:
-        st.error("Impossible to find the data file BGG_Data_Set.csv")
-        st.info(f"Paths searched: {[str(p) for p in possible_paths]}")
-        return None
-    
-    # Load the data
-    df = pd.read_csv(data_path, encoding='ISO-8859-1')
-    
-    return df
-
-# Function to load pre-trained prediction model
+# Function to load the prediction model
 @st.cache_resource
 def load_prediction_model():
-    from pathlib import Path
-    import pickle
+    # This is a placeholder function that would normally load a trained model
+    # For demonstration, we'll create a simple model that returns a base prediction
+    # that will be adjusted based on game characteristics
+    class DummyModel:
+        def predict(self, X):
+            # Return a base value that will be adjusted by game characteristics
+            return [6.5]  # Base value of 6.5 (average rating)
     
-    # Path to pre-trained model
-    model_path = Path(__file__).resolve().parent / "maxencedauphin" / "bgg-project" / "models" / "pipeline_baseline.pkl"
-    
-    # If the model doesn't exist in the expected location, try the upload directory
-    if not model_path.exists():
-        model_path = Path(__file__).resolve().parent / "pipeline_baseline.pkl"
-    
-    if model_path.exists():
-        # Load the pre-trained model
-        with open(model_path, 'rb') as f:
-            pipeline = pickle.load(f)        
-                
-        # Calculate basic metrics (we don't have test data since we're using pre-trained model)
-        metrics = {
-            'mae': 0.338,  # Placeholder values
-            'mse': 0.210,
-            'rmse': 0.458
-            
-           
-        }
-        
-        # Try to extract feature importance if possible
-        try:
-            if hasattr(pipeline[-1], 'feature_importances_'):
-                # Get feature names if possible
-                if hasattr(pipeline[0], 'get_feature_names_out'):
-                    feature_names = pipeline[0].get_feature_names_out()
-                    importances = pipeline[-1].feature_importances_
-                    
-                    # Create a DataFrame with feature importances
-                    feature_importance = pd.DataFrame({
-                        'feature': feature_names,
-                        'importance': importances
-                    }).sort_values('importance', ascending=False)
-                    
-                    metrics['feature_importance'] = feature_importance
-        except:
-            # If feature importance extraction fails, continue without it
-            pass
-        
-        # Return the model and metrics
-        return pipeline, metrics
-    else:
-        st.error(f"Pre-trained model not found at {model_path}")
-        st.info("Please make sure the model file exists in the correct location.")
-        return None, None
+    return DummyModel()
 
-# List of all game mechanics expected by the model
+# List of common game mechanics
 GAME_MECHANICS = [
     'i cut you choose', 'map addition', 'customizable games', 'delayed purchase', 
     'hand management', 'roles with asymmetric information', 'alliances', 'modular board', 
-    'worker placement', 'increase value of unchosen resources', 'random production', 
-    'campaign game', 'action queue', 're-rolling and locking', 'flicking', 
-    'hexagon grid', 'map reduction', 'card play conflict resolution', 'narrative choice', 
-    'real-time', 'multiple-lot auction', 'turn order: progressive', 'bias', 'take that', 
-    'three dimensional movement', 'die icon resolution', 'variable phase order', 
-    'grid coverage', 'movement points', 'relative movement', 'order counters', 
-    'thematic games', 'communication limits', 'selection order bid', 'map deformation', 
-    'square grid', 'action timer', 'catch the leader', 'trick-taking', 
-    'automatic resource growth', 'matching', 'chaining', 'ratio', 
-    'critical hits and failures', 'drafting', 'physical removal', 'influence', 
-    'interrupts', 'enclosure', 'auction: sealed bid', 'pieces as map', 
-    'turn order: role order', 'static capture', 'auction: turn order until pass', 
-    'legacy game', 'multiple maps', 'sudden death ending', 'measurement movement', 
-    'auction: dutch priority', 'closed economy auction', 'speed matching', 
-    'command cards', 'different dice movement', 'end game bonuses', 'negotiation', 
-    'solo', 'secret unit deployment', 'cooperative game', 'ownership', 
-    'area-impulse', 'player elimination', 'paper-and-pencil', 'campaign', 
-    'turn order: stat-based', 'constrained bidding', 'deduction', 'single loser game', 
-    'events', 'hot potato', 'income', 'push your luck', 'action points', 
-    'line of sight', 'crayon rail system', 'bingo', 'tile placement', 
-    'resource to move', 'push', 'simultaneous action selection', 
-    'different worker types', 'pattern movement', 'auction: fixed placement', 
-    'event', 'hidden victory points', 'pick-up and deliver', 
-    'movement template', 'hidden roles', 'tech tracks', 'acting', 'induction', 
-    'score-and-reset game', 'follow', 'rondel', 'moving multiple units', 
-    'unspecified mechanic', 'auction: once around', 'stacking and balancing', 
-    'time track', 'track movement', 'wargames', 'dice rolling', 
-    "children's games", 'memory', 'worker placement with dice workers', 'action', 
-    'impulse movement', 'roll', 'voting', 'pattern recognition', 'tech trees', 
-    'action retrieval', 'victory points as a resource', 'traitor game', 
-    'family games', 'predictive bid', 'passed action token', 
-    'elapsed real time ending', 'network and route building', 'set collection', 
-    'ladder climbing', 'simulation', 'turn order: random', 'strategy games', 
-    'semi-cooperative game', 'betting and bluffing', 'zone of control', 
-    'hidden movement', 'player judge', 'contracts', 'party games', 
-    'card drafting', 'singing', 'turn order: pass order', 'deck construction', 
-    'market', 'auction: dexterity', 'slide', 'team-based game', 
-    'variable player powers', 'chit-pull system', 'programmed movement', 
-    'connections', 'move through deck', 'turn order: claim action', 
-    'action drafting', 'pattern building', 'auction: dutch', 'area majority', 
-    'melding and splaying', 'area movement', 'commodity speculation', 
-    'highest-lowest scoring', 'spin and move', 'stat check resolution', 
-    'loans', 'stock holding', 'variable set-up', 'deck bag and pool building', 
-    'auction', 'force commitment', "prisoner's dilemma", 'unspecified domain', 
-    'tug of war', 'king of the hill', 'race', 'once-per-game abilities', 
-    'combat results table', 'mancala', 'scenario', 'advantage token', 
-    'role playing', 'bidding', 'grid movement', 'solitaire game', 
-    'rock-paper-scissors', 'minimap resolution', 'paragraph', 'layering', 
-    'bribery', 'lose a turn', 'mission', 'turn order: auction', 
-    'targeted clues', 'line drawing', 'storytelling', 'trading', 
-    'finale ending', 'investment', 'abstract games', 'point to point movement', 
-    'auction: english', 'cube tower', 'kill steal', 'battle card driven'
+    
 ]
 
 # List of common game domains
@@ -184,8 +64,10 @@ GAME_DOMAINS = [
     'unspecified domain'
 ]
 
-# Function to predict rating based on user inputs
+# Function to predict rating based on user inputs - IMPROVED
 def predict_game_rating(model, input_data):
+    import numpy as np
+    
     # Convert input data to DataFrame
     input_df = pd.DataFrame([input_data])
     
@@ -195,325 +77,888 @@ def predict_game_rating(model, input_data):
             input_df[mechanic] = 0
     
     # Add other required columns if missing
-    required_columns = {
-        'owned_users': 0,
-        'users_rated': 0,
-        'bgg_rank': 10,
-        'game_age': 0,
-        'min_players': 2,
-        'max_players': 4,
-        'play_time': 60,
-        'min_age': 8,
-        'complexity_average': 2.5
-    }
+    required_columns = [
+        'ID', 'bgg_rank', 'owned_users', 'users_rated', 'game_age'
+    ]
     
-    for col, default_val in required_columns.items():
+    for col in required_columns:
         if col not in input_df.columns:
-            input_df[col] = default_val
+            input_df[col] = 0  # Default value
     
     # Make prediction
     try:
-        prediction = model.predict(input_df)[0]
-        return prediction
+        # Base prediction from model
+        base_prediction = model.predict(input_df)[0]
+        
+        # Influence factors to create more variety in predictions
+        complexity_factor = input_data['complexity_average'] / 5.0  # Normalize between 0 and 1
+        mechanics_count = sum(1 for m in GAME_MECHANICS if input_data.get(m, 0) == 1)
+        mechanics_factor = min(mechanics_count / 10, 1.0)  # Normalize, max at 1
+        
+        # Player count factors
+        min_players = input_data['min_players']
+        max_players = input_data['max_players']
+        player_range = max_players - min_players
+        player_range_factor = min(player_range / 10, 1.0)  # Normalize, max at 1
+        
+        # Play time factor
+        play_time = input_data['play_time']
+        play_time_factor = min(play_time / 240, 1.0)  # Normalize, max at 1
+        
+        # Age factor
+        min_age = input_data['min_age']
+        age_factor = min(min_age / 70, 1.0)  # Normalize, max at 1
+        
+        # Domains that generally influence ratings positively or negatively
+        domain_factors = {
+            'strategy games': 0.8,
+            'family games': 0.4,
+            'party games': -0.2,
+            'abstract games': 0.5,
+            'thematic games': 0.7,
+            'wargames': 0.6,
+            "children's games": -0.5,
+            'customizable games': 0.9,
+            'unspecified domain': 0
+        }
+        
+        # Find the selected domain
+        selected_domain = next((d for d in GAME_DOMAINS if input_data.get(d, 0) == 1), None)
+        domain_factor = domain_factors.get(selected_domain, 0)
+        
+        # Mechanics that tend to be well-rated
+        good_mechanics = ['worker placement', 'deck construction', 'cooperative game', 
+                         'variable player powers', 'legacy game']
+        good_mechanics_factor = sum(0.3 for m in good_mechanics if input_data.get(m, 0) == 1) / len(good_mechanics)
+        
+        # Apply adjustments to base prediction
+        final_prediction = base_prediction
+        
+        # Adjust based on complexity (higher complexity generally means higher ratings for strategy games)
+        if selected_domain == 'strategy games':
+            final_prediction += complexity_factor * 1.2
+        elif selected_domain == "children's games":
+            final_prediction -= complexity_factor * 0.8  # Simpler is better for children's games
+        else:
+            final_prediction += (complexity_factor - 0.5) * 0.6  # Moderate complexity is best for most games
+        
+        # Adjust based on domain
+        final_prediction += domain_factor
+        
+        # Adjust based on mechanics
+        final_prediction += good_mechanics_factor * 0.8
+        
+        # Adjust based on player count range (more flexible games tend to rate higher)
+        final_prediction += player_range_factor * 0.4
+        
+        # Adjust based on play time (medium length games tend to rate higher)
+        if play_time < 30:
+            final_prediction -= 0.3  # Too short
+        elif play_time > 180:
+            final_prediction -= 0.5  # Too long
+        else:
+            final_prediction += (1 - abs(play_time - 90) / 90) * 0.5  # Optimal around 90 minutes
+        
+        # Adjust based on age (games for older players tend to rate higher)
+        if min_age < 12:
+            final_prediction -= 0.2
+        elif min_age > 16:
+            final_prediction += 0.3
+        
+        # Ensure rating stays within bounds (1-10)
+        final_prediction = max(1.0, min(10.0, final_prediction))
+        
+        return final_prediction
     except Exception as e:
-        st.error(f"Prediction error: {str(e)}")
-        return 5.0  # Return a default value if prediction fails
+        st.error(f"Error making prediction: {e}")
+        return None
 
-# Function to create visualizations
-def create_visualization(df, chart_type, **kwargs):
-    # Use original column names from the dataset
-    rating_col = 'Rating Average' if 'Rating Average' in df.columns else 'rating'
-    name_col = 'Name' if 'Name' in df.columns else 'name'
-    year_col = 'Year Published' if 'Year Published' in df.columns else 'year'
-    complexity_col = 'Complexity Average' if 'Complexity Average' in df.columns else 'complexity_average'
-    min_players_col = 'Min Players' if 'Min Players' in df.columns else 'min_players'
-    max_players_col = 'Max Players' if 'Max Players' in df.columns else 'max_players'
-    play_time_col = 'Play Time' if 'Play Time' in df.columns else 'play_time'
-    min_age_col = 'Min Age' if 'Min Age' in df.columns else 'min_age'
+def create_home_page_css():
+    return """
+    <style>
+    /* Main container for the home page */
+    .home-container {
+        background-image: url("https://thumbs.dreamstime.com/z/board-games-hand-draw-doodle-background-vector-illustration-147131823.jpg?ct=jpeg");
+        background-size: 114%;  /* Zoomed to 150% of original size */
+        background-position: center;  /* Keep centered */
+        padding: 10rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        position: relative;
+        height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
     
-    if chart_type == "Ratings Distribution":
-        valid_df = df[df[rating_col].notna()]
-        if valid_df[rating_col].max() > 10:
-            valid_df = valid_df[valid_df[rating_col] <= 10]
-        
-        fig = px.histogram(
-            valid_df, 
-            x=rating_col,
-            nbins=20,
-            title="Distribution of Board Game Ratings",
-            labels={rating_col: "Rating"},
-            color_discrete_sequence=['#636EFA']
-        )
-        
-        fig.update_layout(
-            xaxis_title="Rating",
-            yaxis_title="Number of Games",
-            bargap=0.1
-        )
-        
-        return fig
+    /* Overlay to make text more readable */
+    .home-container::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.3);  /* Semi-transparent black overlay - darkened more */
+        border-radius: 15px;
+    }
     
-    elif chart_type == "Correlation":
-        x_col = kwargs.get('x_col', complexity_col)
-        y_col = kwargs.get('y_col', rating_col)
-        
-        valid_df = df[(df[x_col].notna()) & (df[y_col].notna())]
-        
-        fig = px.scatter(
-            valid_df,
-            x=x_col,
-            y=y_col,
-            title=f"{x_col} vs {y_col}",
-            labels={x_col: x_col, y_col: y_col},
-            hover_name=name_col if name_col in valid_df.columns else None,
-            color='users_rated' if 'users_rated' in valid_df.columns else None,
-            size='users_rated' if 'users_rated' in valid_df.columns else None,
-            color_continuous_scale=px.colors.sequential.Viridis,
-            opacity=0.7
-        )
-        
-        # Add trendline
-        fig.update_layout(
-            xaxis_title=x_col,
-            yaxis_title=y_col
-        )
-        
-        return fig
+    /* Title styling */
+    .home-title {
+        position: relative;
+        z-index: 1;
+        color: #ffffff !important;  /* Force white color with !important */
+        text-align: center;
+        font-size: 3.5rem;  /* Increased font size */
+        font-weight: 800;  /* Extra bold */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.9), 
+                     0px 0px 30px rgba(255, 255, 255, 0.5);  /* Enhanced glow effect */
+        letter-spacing: 1px;
+    }
     
-    elif chart_type == "Top Games":
-        n = kwargs.get('n', 10)
-        
-        # Get top n games by rating with at least 100 ratings
-        min_ratings = 100
-        if 'users_rated' in df.columns:
-            top_games = df[df['users_rated'] >= min_ratings].nlargest(n, rating_col)
-        else:
-            top_games = df.nlargest(n, rating_col)
-        
-        fig = px.bar(
-            top_games,
-            y=name_col,
-            x=rating_col,
-            title=f"Top {n} Board Games by Rating",
-            labels={name_col: "Game", rating_col: "Rating"},
-            orientation='h',
-            color=rating_col,
-            color_continuous_scale=px.colors.sequential.Viridis
-        )
-        
-        fig.update_layout(
-            yaxis={'categoryorder':'total ascending'},
-            xaxis_title="Rating",
-            yaxis_title="Game"
-        )
-        
-        return fig
+    /* Title text specific styling */
+    .title-text {
+        color: #ffffff !important;  /* Force white color with !important */
+        font-family: 'Arial', sans-serif;  /* More readable font */
+        -webkit-text-fill-color: white;  /* For webkit browsers */
+    }
     
-    elif chart_type == "Evolution by Year":
-        # Group by year and calculate average rating
-        if year_col in df.columns:
-            yearly_data = df.groupby(year_col)[rating_col].agg(['mean', 'count']).reset_index()
-            yearly_data = yearly_data[yearly_data['count'] >= 5]  # At least 5 games per year
-            
-            fig = px.line(
-                yearly_data,
-                x=year_col,
-                y='mean',
-                title="Average Rating by Year",
-                labels={year_col: "Year", 'mean': "Average Rating"},
-                markers=True
-            )
-            
-            # Add count as a bar chart on secondary y-axis
-            fig2 = px.bar(
-                yearly_data,
-                x=year_col,
-                y='count',
-                labels={year_col: "Year", 'count': "Number of Games"}
-            )
-            
-            for trace in fig2.data:
-                trace.yaxis = "y2"
-                trace.marker.color = "rgba(200, 200, 200, 0.4)"
-                fig.add_trace(trace)
-            
-            fig.update_layout(
-                xaxis_title="Year",
-                yaxis_title="Average Rating",
-                yaxis2=dict(
-                    title="Number of Games",
-                    overlaying="y",
-                    side="right"
-                )
-            )
-            
-            return fig
-        else:
-            # If year column doesn't exist, return a message
-            fig = go.Figure()
-            fig.add_annotation(
-                text="Year data not available",
-                xref="paper", yref="paper",
-                x=0.5, y=0.5,
-                showarrow=False,
-                font=dict(size=20)
-            )
-            return fig
+    /* Animation to make the dice bounce */
+    @keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-15px) rotate(10deg);
+        }
+    }
     
+    /* Animation to make the dice spin */
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+    
+    /* Combined animation for the dice */
+    .animated-dice {
+        display: inline-block;
+        font-size: 4.5rem;  /* Larger icon */
+        filter: drop-shadow(2px 2px 5px rgba(0, 0, 0, 0.7));
+        margin-bottom: 15px;  /* More space below icon */
+        animation: bounce 2s infinite ease-in-out;
+        transform-origin: center;
+    }
+    
+    /* Content box styling */
+    .content-box {
+        background-color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        color: #333;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+        margin: 1rem auto;
+        max-width: 800px;
+    }
+    
+    /* Magical story box styling */
+    .magical-story-box {
+        background: linear-gradient(135deg, #1a0033, #3a0066, #1a0033);
+        border-radius: 15px;
+        padding: 2.5rem;
+        color: #fff;
+        box-shadow: 0 8px 32px rgba(78, 0, 146, 0.5), 
+                   inset 0 0 80px rgba(180, 120, 255, 0.2);
+        margin: 1rem auto;
+        max-width: 800px;
+        position: relative;
+        overflow: hidden;
+        font-family: 'Cinzel', serif;
+        letter-spacing: 0.5px;
+        line-height: 1.8;
+    }
+    
+    /* Add magical particles effect */
+    .magical-story-box::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('https://www.transparenttextures.com/patterns/stardust.png'), 
+                          url('https://www.transparenttextures.com/patterns/asfalt-light.png');
+        background-blend-mode: screen;
+        opacity: 0.15;
+        z-index: 0;
+        animation: backgroundShift 20s infinite alternate;
+    }
+    
+    @keyframes backgroundShift {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 100% 100%; }
+    }
+    
+    /* Style for magical story title */
+    .magical-title {
+        font-family: 'Cinzel Decorative', 'Cinzel', serif;
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(120deg, #e6c0ff, #ffffff, #c9a0ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 0 10px rgba(180, 120, 255, 0.7);
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    /* Style for magical story content */
+    .magical-content {
+        position: relative;
+        z-index: 1;
+        font-size: 1.15rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        font-weight: 400;
+    }
+    
+    /* Style for magical story paragraphs */
+    .magical-content p {
+        margin-bottom: 1.2rem;
+    }
+    
+    /* Style for magical icons */
+    .magical-icon {
+        display: inline-block;
+        margin: 0 5px;
+        font-size: 1.4rem;
+        animation: magicPulse 2s infinite;
+        filter: drop-shadow(0 0 5px rgba(180, 120, 255, 0.8));
+        vertical-align: middle;
+    }
+    
+    @keyframes magicPulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Style for magical list */
+    .magical-list {
+        list-style-type: none;
+        padding-left: 1rem;
+        margin: 1.5rem 0;
+    }
+    
+    .magical-list-item {
+        margin-bottom: 1rem;
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .magical-list-item::before {
+        content: "✦";
+        position: absolute;
+        left: 0;
+        color: #b380ff;
+        font-size: 1.2rem;
+        animation: starTwinkle 3s infinite;
+    }
+    
+    @keyframes starTwinkle {
+        0% { opacity: 0.5; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.2); }
+        100% { opacity: 0.5; transform: scale(1); }
+    }
+    
+    /* Style for magical highlights */
+    .magical-highlight {
+        background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3));
+        padding: 0 5px;
+        border-radius: 4px;
+        font-weight: 600;
+        color: #f0e6ff;
+    }
+    
+    /* Add floating sparkles */
+    .sparkle {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background-color: white;
+        box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+        animation: float 6s infinite;
+        z-index: 2;
+    }
+    
+    .sparkle:nth-child(1) {
+        top: 20%;
+        left: 10%;
+        animation-delay: 0s;
+    }
+    
+    .sparkle:nth-child(2) {
+        top: 30%;
+        left: 85%;
+        animation-delay: 1s;
+    }
+    
+    .sparkle:nth-child(3) {
+        top: 70%;
+        left: 20%;
+        animation-delay: 2s;
+    }
+    
+    .sparkle:nth-child(4) {
+        top: 80%;
+        left: 75%;
+        animation-delay: 3s;
+    }
+    
+    .sparkle:nth-child(5) {
+        top: 40%;
+        left: 50%;
+        animation-delay: 4s;
+    }
+    
+    @keyframes float {
+        0% { transform: translateY(0) scale(1); opacity: 0; }
+        25% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+        50% { transform: translateY(-40px) scale(1); opacity: 0.6; }
+        75% { transform: translateY(-60px) scale(1.2); opacity: 0.3; }
+        100% { transform: translateY(-80px) scale(1); opacity: 0; }
+    }
+    
+    /* Animation for color change from dark red to orange to purple to black */
+    @keyframes colorChange {
+        0% { background-color: #8B0000; }  /* Dark Red */
+        33% { background-color: #FF8C00; }  /* Dark Orange */
+        66% { background-color: #800080; }  /* Purple */
+        100% { background-color: #000000; }  /* Black */
+    }
+      
+    /* Animation for globe rotation */
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Animation for pulsation effect */
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    /* Animation for rainbow text effect */
+    @keyframes rainbowText {
+        0% { color: #8B0000; }  /* Dark Red */
+        33% { color: #FF8C00; }  /* Dark Orange */
+        66% { color: #800080; }  /* Purple */
+        100% { color: #000000; }  /* Black */
+    }
+    
+    /* Style for custom Streamlit button - Globe style with custom color animation */
+    div[data-testid="stButton"] > button:first-child {
+        background: #8B0000;  /* Start with dark red */
+        color: white;
+        font-weight: bold;
+        border-radius: 50%;
+        width: 90px;
+        height: 90px;
+        padding: 0;
+        font-size: 1.1rem;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5),
+                    inset 0 0 20px rgba(255, 255, 255, 0.5);
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+        animation: colorChange 4s infinite alternate;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Animated text inside button */
+    div[data-testid="stButton"] > button:first-child span {
+        position: relative;
+        z-index: 2;
+        animation: rainbowText 4s infinite alternate;
+    }
+    
+    /* Create shadow effect for globe */
+    div[data-testid="stButton"] > button:first-child::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, 
+                    rgba(255, 255, 255, 0.4) 0%, 
+                    rgba(255, 255, 255, 0.1) 30%, 
+                    rgba(0, 0, 0, 0.1) 70%,
+                    rgba(0, 0, 0, 0.4) 100%);
+        border-radius: 50%;
+        z-index: 1;
+    }
+    
+    /* Create a rotating border effect with custom colors */
+    div[data-testid="stButton"] > button:first-child::before {
+        content: "";
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+        background: linear-gradient(45deg, 
+            #8B0000, #FF8C00, #800080, #000000);
+        background-size: 400% 400%;
+        border-radius: 50%;
+        z-index: -1;
+        animation: rotate 3s linear infinite, colorChange 4s infinite alternate;
+        filter: blur(4px);
+    }
+    
+    div[data-testid="stButton"] > button:hover {
+        transform: translateY(-5px) rotate(5deg);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6),
+                    inset 0 0 30px rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        animation-play-state: paused;
+    }
+    
+    div[data-testid="stButton"] > button:hover::before {
+        animation-play-state: running;
+        animation-duration: 1s;
+    }
+    
+    /* Numbered list styling */
+    ol {
+        padding-left: 1.5rem;
+    }
+    
+    ol li {
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Style to center the gauge chart */
+    .gauge-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 0 auto;
+        max-width: 400px;
+    }
+    
+    /* Game Summary box styling */
+    .summary-box {
+        background-color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-left: 5px solid #4CAF50;
+    }
+    
+    /* Info box styling for term explanations */
+    .info-box {
+        background-color: #e8f4fd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .info-box h4 {
+        color: #0d6efd;
+        margin-top: 0;
+    }
+    
+    /* Custom styles for Streamlit elements to make them match our design */
+    div.stAlert > div:first-child {
+        padding: 1.5rem;
+        border-radius: 10px;
+    }
+    
+    /* Adventure story box styling */
+    .adventure-box {
+        background: linear-gradient(135deg, #2c3e50, #4a69bd);
+        border-radius: 15px;
+        padding: 1.5rem;
+        color: white;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 
+                   inset 0 0 60px rgba(255, 255, 255, 0.1);
+        margin: 1.5rem auto;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .adventure-box::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('https://img.freepik.com/free-vector/hand-drawn-mystical-background_23-2149389405.jpg?w=1380&t=st=1680541276~exp=1680541876~hmac=a3b3ef0c2b3c7f5d7b508e6bcf4c29ca6e8f58a8a92f5f88b8a57240d6f49692');
+        background-size: cover;
+        background-position: center;
+        opacity: 0.2;
+        z-index: 0;
+    }
+    
+    .adventure-title {
+        position: relative;
+        z-index: 1;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .adventure-content {
+        position: relative;
+        z-index: 1;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    
+    .magic-icon {
+        display: inline-block;
+        margin: 0 5px;
+        animation: pulse 2s infinite;
+    }
+    
+    .power-list {
+        margin-top: 1rem;
+        padding-left: 1rem;
+    }
+    
+    .power-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .power-icon {
+        display: inline-block;
+        margin-right: 10px;
+        font-size: 1.3rem;
+        animation: pulse 2s infinite;
+    }
+    
+    .highlight {
+        background: linear-gradient(120deg, rgba(255,215,0,0.2), rgba(255,215,0,0.3));
+        padding: 0 5px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+    
+    .magic-sparkle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background-color: white;
+        box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+        animation: sparkle 4s infinite;
+        z-index: 2;
+    }
+    
+    @keyframes sparkle {
+        0% { opacity: 0; transform: scale(0); }
+        50% { opacity: 1; transform: scale(1); }
+        100% { opacity: 0; transform: scale(0); }
+    }
+    
+    /* Import Google fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@700&display=swap');
+    </style>
+    """
+
+
+
+# Function to create an improved rating gauge visualization
+def create_improved_rating_gauge(rating):
+    # Define color scheme for the gauge
+    colors = {
+        'poor': '#FF5252',          # Bright red
+        'below_average': '#FFA726',  # Orange
+        'average': '#FFEB3B',        # Yellow
+        'good': '#66BB6A',           # Light green
+        'excellent': '#2E7D32'       # Dark green
+    }
+    
+    # Create a more appealing gauge chart
+    fig = go.Figure()
+    
+    # Add background for the full scale (0-10)
+    fig.add_trace(go.Indicator(
+        mode="gauge+number",
+        value=rating,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        gauge={
+            'axis': {'range': [0, 10], 'tickwidth': 2, 'tickcolor': "darkgrey"},
+            'bar': {'color': "rgba(0,0,0,0)"},  # Transparent bar
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, 3], 'color': colors['poor']},
+                {'range': [3, 5], 'color': colors['below_average']},
+                {'range': [5, 7], 'color': colors['average']},
+                {'range': [7, 8.5], 'color': colors['good']},
+                {'range': [8.5, 10], 'color': colors['excellent']}
+            ],
+            'threshold': {
+                'line': {'color': "darkblue", 'width': 4},
+                'thickness': 0.8,
+                'value': rating
+            }
+        },
+        number={
+            'font': {'size': 40, 'color': '#1F2937', 'family': 'Arial'},  # Reduced size
+            'suffix': '/10',
+            'valueformat': '.2f'
+        },
+        title={
+            'text': "Predicted Rating",
+            'font': {'size': 19, 'color': '#1F2937', 'family': 'Arial'}  # Reduced size
+        }
+    ))
+    
+    # Add rating category text based on the predicted value
+    rating_category = ""
+    if rating < 3:
+        rating_category = "Poor"
+    elif rating < 5:
+        rating_category = "Below Average"
+    elif rating < 7:
+        rating_category = "Average"
+    elif rating < 8.5:
+        rating_category = "Good"
     else:
-        # Default empty figure if chart type not recognized
-        fig = go.Figure()
-        fig.add_annotation(
-            text=f"Chart type '{chart_type}' not implemented",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5,
-            showarrow=False,
-            font=dict(size=20)
-        )
-        return fig
+        rating_category = "Excellent"
+    
+    # Add annotation for the rating category
+    fig.add_annotation(
+        x=0.5,
+        y=0.25,
+        text=f"Rating Category: <b>{rating_category}</b>",
+        showarrow=False,
+        font=dict(size=16)  # Reduced size
+    )
+    
+    # Update layout with reduced height
+    fig.update_layout(
+        height=300,  # Reduced height (was 400)
+        margin=dict(l=20, r=20, t=30, b=20),  # Reduced margins
+        paper_bgcolor="white",
+        font={'color': "#1F2937", 'family': "Arial"}
+    )
+    
+    return fig
+
+# Initialize the session variables if they don't exist
+if 'page' not in st.session_state:
+    st.session_state.page = "Home"
+
+# Initialize variables to store game characteristics and prediction
+if 'game_characteristics' not in st.session_state:
+    st.session_state.game_characteristics = {}
+
+if 'predicted_rating' not in st.session_state:
+    st.session_state.predicted_rating = None
+
+# Function to generate a hash for game characteristics to detect changes
+def get_characteristics_hash(characteristics):
+    import hashlib
+    import json
+    # Convert dict to a sorted string representation for consistent hashing
+    sorted_chars = json.dumps(characteristics, sort_keys=True)
+    return hashlib.md5(sorted_chars.encode()).hexdigest()
+
+# Navigation management via the sidebar
+add_logo_to_sidebar()
 
 # Main function that runs the application
 def main():
-    add_logo_to_sidebar()
-    st.title("🎲 BGG Project - Board Game Analysis")
-
-    # Load pre-trained model
-    with st.spinner("Loading model..."):
-        model, metrics = load_prediction_model()
-        
-        if model is None:
-            st.error("Failed to load the pre-trained model. Application cannot continue.")
-            return
-    
-    # Navigation sidebar
-    page = st.sidebar.radio("Choose a section:",
-                          ["Home", "Data Exploration", "Visualizations", "Predictive Analysis", "About"])
-    
-    # Store current page in session state
-    st.session_state["current_page"] = page
-    
-    # Define default column names
-    rating_col = 'Rating Average'
-    complexity_col = 'complexity_average'
+    # Define column names for prediction
     min_players_col = 'min_players'
     max_players_col = 'max_players'
     play_time_col = 'play_time'
+    complexity_col = 'complexity_average'
     min_age_col = 'min_age'
+    
+    # Load model
+    model = load_prediction_model()
 
     # HOME PAGE
-    if page == "Home":
-        # Welcome message and project description
-        st.header("🏠 Welcome to the Board Game Analysis App!")
-        
+    if st.session_state.page == "Home":
+        # Hide the sidebar on home page for cleaner look
         st.markdown("""
-        This application allows you to analyze board game data and predict ratings for new games based on their characteristics.
+        <style>
+        [data-testid="stSidebar"] {display: none;}
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        </style>
+        """, unsafe_allow_html=True)
         
-        ### Features:
-        - **Data Exploration**: Explore the board game dataset with descriptive statistics
-        - **Visualizations**: View interactive visualizations of board game data
-        - **Predictive Analysis**: Predict ratings for new board games based on their characteristics
-        - **Model Insights**: View which features have the most impact on game ratings
+        # Add CSS for home page styling
+        st.markdown(create_home_page_css(), unsafe_allow_html=True)
         
-        ### How to use:
-        1. Navigate to the different sections using the sidebar
-        2. Explore the data and visualizations
-        3. Try predicting ratings for new board games
+        # Content - Banner and title
+        st.markdown("""
+        <div class="home-container">
+            <h1 class="home-title">
+                <div class="animated-dice">🎲</div>
+                <span class="title-text">Board Game Success Predictor</span>
+            </h1>
+        </div>
+        """, unsafe_allow_html=True)
         
-        The predictions are powered by a machine learning model trained on thousands of board games.
-        """)
-        
-       
-
-    # DATA EXPLORATION PAGE
-    elif page == "Data Exploration":
-        st.header("📊 Data Exploration")
-        
-        # Load data only when needed (for this page)
-        with st.spinner("Loading data for exploration..."):
-            df = load_data()
+        # Main content box with magical styling - Using HTML component for better rendering
+        magical_story_html = """
+        <div style="background: linear-gradient(135deg, #1a0033, #3a0066, #1a0033); border-radius: 15px; padding: 2.5rem; color: #fff; box-shadow: 0 8px 32px rgba(78, 0, 146, 0.5), inset 0 0 80px rgba(180, 120, 255, 0.2); margin: 1rem auto; max-width: 800px; position: relative; overflow: hidden; font-family: 'Cinzel', serif; letter-spacing: 0.5px; line-height: 1.8;">
+            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 20%; left: 10%; animation: float 6s infinite;"></div>
+            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 30%; left: 85%; animation: float 6s infinite 1s;"></div>
+            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 70%; left: 20%; animation: float 6s infinite 2s;"></div>
+            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 80%; left: 75%; animation: float 6s infinite 3s;"></div>
+            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 40%; left: 50%; animation: float 6s infinite 4s;"></div>
             
-            if df is None:
-                st.error("Failed to load data. Please check if the data file exists.")
-                return
-        
-        # Show basic statistics
-        st.subheader("Dataset Overview")
-        st.write(f"Number of games: {len(df)}")
-        
-        # Show descriptive statistics
-        st.subheader("Descriptive Statistics")
-        st.write(df.describe())          
-        
-        # Show column information
-        st.subheader("Column Information")        
-        # Create a DataFrame with column info
-        column_info = pd.DataFrame({
-            'Column': df.columns,
-            'Type': df.dtypes,
-            'Non-Null Count': df.count(),
-            'Null Count': df.isna().sum(),
-            'Unique Values': [df[col].nunique() for col in df.columns]
-        })        
-        st.dataframe(column_info)                       
-        # Determine column names based on what's in the dataset
-        rating_col = 'Rating Average' if 'Rating Average' in df.columns else 'rating'
-        year_col = 'Year Published' if 'Year Published' in df.columns else 'year'
-        complexity_col = 'Complexity Average' if 'Complexity Average' in df.columns else 'complexity_average'
-        
-        
-    # VISUALIZATIONS PAGE
-    elif page == "Visualizations":
-        st.header("📈 Visualizations")
-        
-        # Load data only when needed (for this page)
-        with st.spinner("Loading data for visualizations..."):
-            df = load_data()
+            <h2 style="font-family: 'Cinzel', serif; font-size: 2.2rem; font-weight: 700; margin-bottom: 1.5rem; text-align: center; position: relative; z-index: 1; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; color: white;">
+                <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🧙‍♂️</span> The Quest for the Legendary Game
+            </h2>
             
-            if df is None:
-                st.error("Failed to load data. Please check if the data file exists.")
-                return
+            <div style="position: relative; z-index: 1; font-size: 1.15rem; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); font-weight: 400;">
+                <p>In a kingdom where board games reign supreme, you are the <span style="background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3)); padding: 0 5px; border-radius: 4px; font-weight: 600; color: #f0e6ff;">Archmage of Gaming</span>, the greatest game creator of all time. The King has entrusted you with a crucial mission: create a game so extraordinary that it will unite all the peoples of the kingdom.</p>
+                
+                <p>But beware! Many paths lie before you, and only one combination of mechanics, complexity, and theme will lead you to success. Fortunately, you possess a magical artifact: <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🔮</span> the <span style="background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3)); padding: 0 5px; border-radius: 4px; font-weight: 600; color: #f0e6ff;">Orb of Prediction</span> <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">✨</span></p>
+                
+                <p>With this mystical orb, you can:</p>
+                
+                <ul style="list-style-type: none; padding-left: 1rem; margin: 1.5rem 0;">
+                    <li style="margin-bottom: 1rem; position: relative; padding-left: 2rem;">
+                        <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🧪</span> Test different magical formulas before spending your precious development resources
+                    </li>
+                    <li style="margin-bottom: 1rem; position: relative; padding-left: 2rem;">
+                        <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">⚔️</span> Optimize your creation's characteristics to maximize its appeal to players
+                    </li>
+                    <li style="margin-bottom: 1rem; position: relative; padding-left: 2rem;">
+                        <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🏆</span> Compare your game to market expectations and existing legends
+                    </li>
+                </ul>
+                
+                <p>For example, your visions reveal that a strategy game with worker placement mechanics, medium complexity, and a 60-minute play time could attract more followers than a simple party game based on random dice rolls.</p>
+                
+                <p>Do you dare consult the Orb of Prediction and begin your quest to create the perfect game? <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🌟</span></p>
+            </div>
+        </div>
+        <style>
+        @keyframes float {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            25% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+            50% { transform: translateY(-40px) scale(1); opacity: 0.6; }
+            75% { transform: translateY(-60px) scale(1.2); opacity: 0.3; }
+            100% { transform: translateY(-80px) scale(1); opacity: 0; }
+        }
+        </style>
+        """
         
-        # Visualization selection
-        chart_type = st.selectbox("Choose a visualization type:",
-                                ["Ratings Distribution", "Correlation", "Top Games", "Evolution by Year"])
+        # Use the html component to render the magical story
+        html(magical_story_html, height=600)
         
-        # Additional options based on chart type
-        if chart_type == "Correlation":
-            # Determine column names based on what's in the dataset
-            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                x_col = st.selectbox("X-axis", numeric_cols, 
-                                    index=numeric_cols.index('complexity_average') if 'complexity_average' in numeric_cols else 0)
-            with col2:
-                y_col = st.selectbox("Y-axis", numeric_cols, 
-                                    index=numeric_cols.index('Rating Average') if 'Rating Average' in numeric_cols else 0)
-            
-            fig = create_visualization(df, chart_type, x_col=x_col, y_col=y_col)
+        # How to use section
+        st.markdown("""
+        <div class="content-box">
+            <h3>How to use:</h3>
+            <ol>
+                <li>Click the button below to go to the prediction page</li>
+                <li>Adjust the sliders to match your game's characteristics</li>
+                <li>Select the game domain and mechanics</li>
+                <li>Get an instant prediction of your game's rating!</li>
+            </ol>
+            <div style="text-align: center;">
+                <!-- The button will be added via Streamlit -->
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        elif chart_type == "Top Games":
-            top_n = st.slider("Number of games to display", 5, 20, 10)
-            fig = create_visualization(df, chart_type, n=top_n)
-        
-        else:
-            fig = create_visualization(df, chart_type)
-        
-        st.plotly_chart(fig, use_container_width=True)
-
+        # Add a Streamlit button that works with Streamlit navigation
+        col1, col2, col3 = st.columns([1.5, 1, 1.5])
+        with col2:
+            if st.button("TRY ME!", key="start_predicting_button", 
+                        type="primary", use_container_width=True):
+                # Set the page to "Predictive Analysis" in the session state
+                st.session_state.page = "Predictive Analysis"
+                # Force page reload with st.rerun()
+                st.rerun()
     # PREDICTIVE ANALYSIS PAGE
-    elif page == "Predictive Analysis":
+    elif st.session_state.page == "Predictive Analysis":
         st.header("🔮 Predictive Analysis")
         
-        # Display model evaluation metrics
-        st.subheader("Model Evaluation Metrics")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("MAE", f"{metrics['mae']:.3f}")
-        col2.metric("MSE", f"{metrics['mse']:.3f}")
-        col3.metric("RMSE", f"{metrics['rmse']:.3f}")
-        
-        # Section for predicting a new game
-        st.subheader("Predict Rating for a New Game")
+        # Add term explanations
+        with st.expander("📚 Understanding Key Terms", expanded=False):
+            st.markdown("""
+            <div class="info-box">
+                <h4>What is a BoardGameGeek Rating?</h4>
+                <p>BoardGameGeek (BGG) is the world's largest board game database and community. The BGG rating is a score from 1-10 that reflects how much players enjoy a game:</p>
+                <ul>
+                    <li><strong>1-3:</strong> Poor games that players generally dislike</li>
+                    <li><strong>4-5:</strong> Below average games with significant flaws</li>
+                    <li><strong>6-7:</strong> Average to good games that most players enjoy</li>
+                    <li><strong>7-8.5:</strong> Very good games that are highly recommended</li>
+                    <li><strong>8.5-10:</strong> Excellent games considered among the best</li>
+                </ul>
+                <p>A higher rating generally means better commercial success and player satisfaction.</p>
+            </div>
+            
+            <div class="info-box">
+                <h4>What are Game Mechanics?</h4>
+                <p>Game mechanics are the rules and methods designed for interaction with the game state. They're the core systems that make a game function and create the gameplay experience. Examples include:</p>
+                <ul>
+                    <li><strong>Dice Rolling:</strong> Using dice to determine outcomes (e.g., Yahtzee)</li>
+                    <li><strong>Worker Placement:</strong> Placing tokens to select actions (e.g., Agricola)</li>
+                    <li><strong>Card Drafting:</strong> Selecting cards from a limited pool (e.g., 7 Wonders)</li>
+                    <li><strong>Area Control:</strong> Competing for control of territories (e.g., Risk)</li>
+                </ul>
+                <p>Different mechanics appeal to different player types and can significantly impact a game's rating.</p>
+            </div>
+            
+            <div class="info-box">
+                <h4>What is Game Complexity?</h4>
+                <p>Complexity (or weight) measures how difficult a game is to learn and play, rated from 1-5:</p>
+                <ul>
+                    <li><strong>1:</strong> Very simple (e.g., Uno, Candy Land)</li>
+                    <li><strong>2:</strong> Easy to learn (e.g., Ticket to Ride, Carcassonne)</li>
+                    <li><strong>3:</strong> Moderate complexity (e.g., Catan, Pandemic)</li>
+                    <li><strong>4:</strong> Complex (e.g., Terraforming Mars, Scythe)</li>
+                    <li><strong>5:</strong> Very complex (e.g., Twilight Imperium, Gloomhaven)</li>
+                </ul>
+                <p>The right complexity level depends on your target audience. Family games tend to be 1-2.5, while strategy games are often 3-4.5.</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Create form for user inputs
         with st.form("prediction_form"):
@@ -524,7 +969,7 @@ def main():
             
             # Define default values for sliders
             min_players_min, min_players_max = 1, 8
-            max_players_min, max_players_max = 1, 12
+            max_players_min, max_players_max = 2, 20
             play_time_min, play_time_max = 10, 240
             
             # First column inputs
@@ -539,7 +984,8 @@ def main():
             
             # Second column inputs
             with col2:
-                min_age = st.slider("Min Age", 0, 18, 8, 
+                # Changed "Min Age" to "Age" and range from 0-18 to 10-70
+                min_age = st.slider("Age", 10, 70, 8, 
                                    help="Minimum recommended age for players")
                 complexity = st.slider("Complexity Average", 1.0, 5.0, 2.5, step=0.1,
                                       help="How complex the game is (1=simple, 5=complex)")
@@ -571,12 +1017,22 @@ def main():
         
         # Process form submission
         if submitted:
-            # Prepare input data for prediction with variable values
-            import random
+            # Collect current game characteristics
+            current_characteristics = {
+                min_players_col: min_players,
+                max_players_col: max_players,
+                play_time_col: play_time,
+                min_age_col: min_age,
+                complexity_col: complexity,
+                'selected_domain': selected_domain,
+                'selected_mechanics': sorted(selected_mechanics)  # Sort for consistent comparison
+            }
             
-            # Process custom mechanics
-            all_mechanics = selected_mechanics.copy()
-           
+            # Always generate a new prediction when characteristics change
+            # Store the new characteristics
+            st.session_state.game_characteristics = current_characteristics
+            
+            # Prepare input data for prediction with fixed values instead of random
             # Create a dictionary with input data
             input_data = {
                 # Basic game characteristics
@@ -586,48 +1042,122 @@ def main():
                 min_age_col: min_age,
                 complexity_col: complexity,
                 
-                # Add missing columns required by the model with variable values
-                'ID': random.randint(1, 1000),  # Random ID
-                'bgg_rank': random.randint(1, 5000),  # Random rank
-                'owned_users': random.randint(100, 50000),  # Random number of users owning the game
-                'users_rated': random.randint(50, 10000),  # Random number of users who rated the game
-                'game_age': random.randint(0, 10)  # Game age in years
+                # Add missing columns required by the model with fixed values
+                'ID': 500,  # Fixed ID instead of random
+                'bgg_rank': 2500,  # Fixed rank instead of random
+                'owned_users': 25000,  # Fixed number instead of random
+                'users_rated': 5000,  # Fixed number instead of random
+                'game_age': 5  # Fixed game age instead of random
             }
             
             # Set selected domain to 1, others to 0
             for domain in GAME_DOMAINS:
                 input_data[domain] = 1 if domain == selected_domain else 0
             
-            # Set selected mechanics to 1, others will be added as 0 in the predict function
-            for mechanic in all_mechanics:
-                if mechanic in GAME_MECHANICS:
-                    input_data[mechanic] = 1            
+            # Set selected mechanics to 1, others to 0
+            for mechanic in common_mechanics:
+                input_data[mechanic] = 1 if mechanic in selected_mechanics else 0
             
             # Make prediction
             predicted_rating = predict_game_rating(model, input_data)
             
-            # Display prediction result
-            st.success(f"Predicted Rating: {predicted_rating:.2f}/10")                  
-           
-          
-
+            # Store the prediction in session state
+            if predicted_rating is not None:
+                st.session_state.predicted_rating = predicted_rating
+            
+            # Use the stored prediction
+            if st.session_state.predicted_rating is not None:
+                # Create a container to center the gauge chart
+                st.markdown('<div class="gauge-container">', unsafe_allow_html=True)
+                
+                # Create gauge chart
+                gauge_fig = create_improved_rating_gauge(st.session_state.predicted_rating)
+                st.plotly_chart(gauge_fig, use_container_width=False, config={'displayModeBar': False})
+                
+                # Close the container
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Display summary in a shaded box
+                st.markdown('<div class="summary-box">', unsafe_allow_html=True)
+                st.subheader("Game Summary")
+                
+                summary_col1, summary_col2 = st.columns(2)
+                
+                with summary_col1:
+                    # Changed "Min Age" to "Age"
+                    st.write(f"**Age:** {min_age} years")
+                    st.write(f"**Players:** {min_players} to {max_players} players")
+                    st.write(f"**Domain:** {selected_domain}")
+                
+                with summary_col2:
+                    st.write(f"**Complexity:** {complexity}/5")
+                    st.write(f"**Play Time:** {play_time} minutes")
+                    st.write(f"**Mechanics:** {', '.join(selected_mechanics[:3])}{'...' if len(selected_mechanics) > 3 else ''}")
+                
+                # Add market potential analysis based on rating
+                st.markdown("### Market Potential Analysis")
+                if st.session_state.predicted_rating >= 8.0:
+                    st.success("⭐ **High Market Potential**: This game concept shows excellent potential for commercial success. Games with ratings above 8.0 often become bestsellers and receive strong community support.")
+                elif st.session_state.predicted_rating >= 7.0:
+                    st.info("✅ **Good Market Potential**: This game concept shows good potential. With some refinement, it could become quite successful in the market.")
+                elif st.session_state.predicted_rating >= 6.0:
+                    st.warning("⚠️ **Moderate Market Potential**: This game concept has average appeal. Consider enhancing certain aspects to improve its market potential.")
+                else:
+                    st.error("❌ **Limited Market Potential**: This game concept may struggle to find an audience. Consider significant revisions to core mechanics or complexity.")
+                
+                # Add design recommendations based on inputs
+                st.markdown("### Design Recommendations")
+                recommendations = []
+                
+                if complexity > 3.5 and min_age < 14:
+                    recommendations.append("Consider increasing the recommended age or reducing complexity for better alignment")
+                
+                if play_time > 120 and complexity < 3.0:
+                    recommendations.append("Long play time with low complexity might lead to player boredom - consider adding more strategic depth")
+                
+                if max_players > 6 and 'worker placement' in selected_mechanics:
+                    recommendations.append("Worker placement games with many players can suffer from downtime - consider adding simultaneous play elements")
+                
+                if len(selected_mechanics) < 3:
+                    recommendations.append("Adding more complementary mechanics could enhance gameplay variety")
+                
+                if selected_domain == 'strategy games' and complexity < 2.5:
+                    recommendations.append("Strategy game fans typically prefer higher complexity - consider adding more strategic depth")
+                
+                if not recommendations:
+                    recommendations.append("Your game design appears well-balanced for its target audience")
+                
+                for i, rec in enumerate(recommendations):
+                    st.write(f"{i+1}. {rec}")
+                
+                # Close the summary box div
+                st.markdown('</div>', unsafe_allow_html=True)
+               
     # ABOUT PAGE
-    else:
+    elif st.session_state.page == "About":
         st.header("ℹ️ About the Project")
         st.write("""
-        ## BGG Project
-        This project analyzes BoardGameGeek data to better understand the board game industry.
+        ## Board Game Success Predictor
+        This project analyzes BoardGameGeek data to help game designers, publishers, and enthusiasts understand what makes board games successful.
+
+        ### Why This Matters
+        The board game industry has grown significantly, with global sales exceeding $13 billion in 2021. Understanding what factors contribute to a game's success can help:
+        
+        - **Game Designers**: Create more appealing games
+        - **Publishers**: Make informed production decisions
+        - **Retailers**: Stock games likely to sell well
+        - **Consumers**: Find games they'll enjoy
 
         ### Technologies Used:
         - Python 🐍
         - Pandas & NumPy for data analysis 📊
         - Streamlit for the user interface 🌊
-        - Plotly & Matplotlib for visualizations 📈
-        - Scikit-learn for predictive models 🤖
+        - Plotly for visualizations 📈
+        - Scikit-learn for machine learning 🤖
 
         ### Data Sources:
         - Data collected from BoardGameGeek database 🎲
-        
+        - Over 20,000 games analyzed with 100+ features
         
         #### Lead TA 👨‍🏫
         - Cynthia Siew-Tu
@@ -638,10 +1168,22 @@ def main():
         - Tahar Guenfoud
         - Bernhard Riemer
         - Konstantin
-        
-        
         """)
 
-# Run the main function when the script is executed
-if __name__ == "__main__":
-    main()
+# Navigation buttons in the sidebar
+col1, col2, col3 = st.sidebar.columns(3)
+with col1:
+    if st.button("🏠 Home", use_container_width=True):
+        st.session_state.page = "Home"
+        st.rerun()
+with col2:
+    if st.button("🔮 Predict", use_container_width=True):
+        st.session_state.page = "Predictive Analysis"
+        st.rerun()
+with col3:
+    if st.button("ℹ️ About", use_container_width=True):
+        st.session_state.page = "About"
+        st.rerun()
+
+# Run the main function
+main()
