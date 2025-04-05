@@ -20,7 +20,7 @@ Then you can start the API from within the `package_folder` folder:
 
 ### Start DEV 
 ```shell
-uvicorn package_folder/api_file:app --reload &&
+uvicorn package_folder.api_file:app --reload &&
 streamlit run app.py   
 ```
 
