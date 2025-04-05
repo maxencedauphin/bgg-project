@@ -35,24 +35,20 @@ def add_logo_to_sidebar():
 # Function to load and prepare the board game dataset
 @st.cache_data
 def load_data():
-    # Define paths using pathlib
-    current_file_path = Path(__file__).resolve()  # Get absolute path of current file
-    project_root = current_file_path.parent.parent  # Go up two levels to project root
-    raw_data_path = project_root / "raw_data"  # Path to raw_data directory
-    raw_data_path.mkdir(exist_ok=True)  # Create directory if it doesn't exist
-            
-    # Download and extract data
-    kaggle_data_path = "https://www.kaggle.com/api/v1/datasets/download/melissamonfared/board-games"
-    archive_path = raw_data_path / "archive.zip"  # Path to zip file
-        
-    subprocess.run(f"curl -L -o {archive_path} {kaggle_data_path}", shell=True)
-    subprocess.run(f"unzip -o {archive_path} -d {raw_data_path}", shell=True)
-        
-    # Load the data
-    filepath = raw_data_path / "BGG_Data_Set.csv"  # Path to CSV file
-    df = pd.read_csv(filepath, encoding='ISO-8859-1')
     
+    # Load the dataset from a CSV file located in the "raw_data" directory within the project root directory.
+    project_root = Path(__file__).resolve().parent.parent
+    
+    # takes a lo,g time to load the data
+    # Try to use pipeline_baseline.pkl instead of the CSV
+    
+    data_path = project_root / "raw_data" / "BGG_Data_Set.csv"
+             
+           
+    df = pd.read_csv(data_path, encoding='ISO-8859-1')
+        
     return df
+    
 
 # Function to load or create prediction model and prepare test data
 @st.cache_resource
@@ -87,23 +83,40 @@ def load_prediction_model(df):
          make_column_selector(dtype_exclude=np.number))
     ]).set_output(transform="pandas")
     
-    # Create and train the model
-    pipeline = make_pipeline(preproc, DecisionTreeRegressor(max_depth=5))
+    # Create and train the model - Using RandomForestRegressor for better feature sensitivity
+    from sklearn.ensemble import RandomForestRegressor
+    pipeline = make_pipeline(preproc, RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42))
     pipeline.fit(X_train, y_train)
     
-    # Make predictions on test set - exactly like in the notebook
+    # Make predictions on test set
     y_pred = pipeline.predict(X_test)
     
-    # Calculate metrics - compatible with older scikit-learn versions
+    # Calculate metrics
     mae = mean_absolute_error(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
-    rmse = np.sqrt(mse)  # Using np.sqrt instead of squared=False parameter
+    rmse = np.sqrt(mse)
     
     metrics = {
         'mae': mae,
         'mse': mse,
         'rmse': rmse
     }
+    
+    # Calculate feature importance
+    try:
+        # Get feature names after preprocessing
+        feature_names = pipeline[0].get_feature_names_out()
+        # Get feature importances from the model
+        importances = pipeline[1].feature_importances_
+        # Create a DataFrame with feature importances
+        feature_importance = pd.DataFrame({
+            'feature': feature_names,
+            'importance': importances
+        }).sort_values('importance', ascending=False)
+        metrics['feature_importance'] = feature_importance
+    except:
+        # If feature importance calculation fails, continue without it
+        pass
     
     # Return everything needed for both metrics display and prediction
     return pipeline, metrics, X_test, y_test, y_pred, names_test
@@ -158,6 +171,16 @@ def create_visualization(df, chart_type, **kwargs):
 
     return fig
 
+# Function to predict rating based on user inputs
+def predict_game_rating(model, input_data):
+    # Convert input data to DataFrame
+    input_df = pd.DataFrame([input_data])
+    
+    # Make prediction
+    prediction = model.predict(input_df)[0]
+    
+    return prediction
+
 # Main function that runs the application
 def main():
     add_logo_to_sidebar()
@@ -178,6 +201,10 @@ def main():
     complexity_col = 'Complexity Average' if 'Complexity Average' in df.columns else 'complexity'
     min_players_col = 'Min Players' if 'Min Players' in df.columns else 'min_players'
     max_players_col = 'Max Players' if 'Max Players' in df.columns else 'max_players'
+    play_time_col = 'Play Time' if 'Play Time' in df.columns else 'play_time'
+    min_age_col = 'Min Age' if 'Min Age' in df.columns else 'min_age'
+    mechanics_col = 'Mechanics' if 'Mechanics' in df.columns else 'mechanics'
+    domains_col = 'Domains' if 'Domains' in df.columns else 'domains'
 
     # HOME PAGE
     if page == "Home":
@@ -250,27 +277,91 @@ def main():
         col2.metric("MSE", f"{metrics['mse']:.3f}")
         col3.metric("RMSE", f"{metrics['rmse']:.3f}")
         
+    
+        # Predict rating for a new game
+        st.subheader("Predict Rating for a New Game")
+        
+        # Create form for user inputs
+        with st.form("prediction_form"):
+            st.write("Enter game characteristics to predict its rating:")
+            
+            # Create two columns for the form
+            col1, col2 = st.columns(2)
+            
+            # Get min and max values for sliders from the dataset
+            min_players_min = int(df[min_players_col].min()) if min_players_col in df.columns else 1
+            min_players_max = int(df[min_players_col].max()) if min_players_col in df.columns else 10
+            
+            max_players_min = int(df[max_players_col].min()) if max_players_col in df.columns else 1
+            max_players_max = int(df[max_players_col].max()) if max_players_col in df.columns else 10
+            
+            play_time_min = int(df[play_time_col].min()) if play_time_col in df.columns else 10
+            play_time_max = int(df[play_time_col].max()) if play_time_col in df.columns else 240
+            
+            # First column inputs
+            with col1:
+                min_players = st.slider("Min Players", min_players_min, min_players_max, min_players_min)
+                max_players = st.slider("Max Players", max_players_min, max_players_max, max_players_min)
+                play_time = st.slider("Play Time (minutes)", play_time_min, play_time_max, play_time_min, step=10)
+            
+            # Second column inputs
+            with col2:
+                min_age = st.slider("Min Age", 0, 99, 8)
+                complexity = st.slider("Complexity Average", 1.0, 5.0, 2.5, step=0.1)
+                year = st.slider("Year Published", 1950, 2025, 2020)
+            
+            # Full width inputs
+            mechanics = st.text_input("Mechanics (comma-separated)", "Dice Rolling, Card Drafting")
+            
+            # Get unique domains from the dataset
+            if domains_col in df.columns:
+                all_domains = []
+                for domains_list in df[domains_col].dropna():
+                    if isinstance(domains_list, str):
+                        domains = domains_list.split(',')
+                        all_domains.extend([d.strip() for d in domains])
+                unique_domains = sorted(list(set(all_domains)))
+            else:
+                unique_domains = ["Strategy", "Family", "Party", "Abstract", "Thematic", "War", "Customizable"]
+            
+            selected_domain = st.selectbox("Domain", unique_domains)
+            
+            # Submit button
+            submitted = st.form_submit_button("Predict Rating")
+        
+        # Process form submission
+        if submitted:
+            # Prepare input data for prediction with variable values
+            import random
+            
+            # Create a dictionary with input data
+            input_data = {
+                # Original columns with form values
+                min_players_col: min_players,
+                max_players_col: max_players,
+                play_time_col: play_time,
+                min_age_col: min_age,
+                complexity_col: complexity,
+                mechanics_col: mechanics,
+                domains_col: selected_domain,
+                year_col: year,
                 
-        # Select game index
-        max_index = len(y_test) - 1
-        selected_index = st.slider("Select game index", 0, max_index, 0)
-        
-        # Display the selected game's actual and predicted ratings
-        col1, col2 = st.columns(2)
-        
-        # Get the game name if available
-        game_name = game_names[selected_index] if selected_index < len(game_names) else f"Game {selected_index}"
-        
-        # Display game information
-        st.subheader(f"Selected Game: {game_name}")
-        col1.metric("Actual Rating", f"{y_test.iloc[selected_index]:.2f}")
-        col2.metric("Predicted Rating", f"{y_pred[selected_index]:.2f}")
-        
-        # Calculate and display prediction error
-        error = abs(y_test.iloc[selected_index] - y_pred[selected_index])
-        st.metric("Prediction Error", f"{error:.2f}")
-        
- # ABOUT PAGE
+                # Add missing columns required by the model with variable values
+                'ID': random.randint(1, 1000),  # Random ID
+                'BGG Rank': random.randint(1, 5000),  # Random rank
+                'Owned Users': random.randint(100, 50000),  # Random number of users owning the game
+                'Users Rated': random.randint(50, 10000)  # Random number of users who rated the game
+            }
+                        
+            # Make prediction
+            predicted_rating = predict_game_rating(model, input_data)
+            
+            # Display prediction result
+            st.success(f"Predicted Rating: {predicted_rating:.2f}/10")
+                        
+           
+
+# ABOUT PAGE
     else:
         st.header("ℹ️ About the Project")
         st.write("""
