@@ -83,3 +83,16 @@ These commands depend on your OS.
 
 After the deployment command, you can access the GCP version with the link like this e.g.: `https://apibgg-{name of our GCP}.europe-west1.run.app/docs`
 ![GCP-doc](/docs/images/gcp-doc.png)
+
+### Start streamlit App in the Cloud
+To launch the Streamlit app in the Streamlit Cloud, follow these steps:
+* Ensure you have a running GCP API with the imported ML model.
+* Update the URI in the Streamlit app's source code to point to the GCP API.
+* Have admin access to the GitHub repository of the Streamlit application.
+  If you don't have the necessary rights, you can fork the project on GitHub.
+  (Fork either all branches or just the master branch, depending on your needs.)  
+  ⚠️ Important: Use the forked repository solely for Streamlit deployment purposes.
+  Do not modify or commit code changes to this repository.
+* 🏁 Create the Streamlit application using the link to your forked repository and selected branch. 🏁
+
+
