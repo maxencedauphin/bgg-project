@@ -4,9 +4,14 @@ reinstall_package:
 	@pip uninstall -y bgg_project || :
 	@pip install -e .
 
+main:
+	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train("all_models")'
 
-run main:
-	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train()'
+xgboost:
+	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train("xgboost")'
+
+xgboost_grid:
+	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train("xgboost_grid")'
 
 #########
 ### DOCKER LOCAL
