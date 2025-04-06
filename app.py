@@ -1,26 +1,17 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
-import pickle
 from streamlit.components.v1 import html
-from pathlib import Path
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.compose import make_column_selector, ColumnTransformer
-from sklearn.pipeline import make_pipeline
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
-import random
+import os
 
-
-# Set page configuration
-st.set_page_config(
-    page_title="Board Game Success Predictor",
-    page_icon="🎲",
-    layout="wide",
-    initial_sidebar_state="expanded"
+# Importer les fonctions de prédiction depuis le nouveau fichier
+from prediction import (
+    load_prediction_model, 
+    predict_game_rating, 
+    prepare_input_data,
+    GAME_MECHANICS,
+    GAME_DOMAINS
 )
 
 # Function to add the Le Wagon logo to the sidebar
@@ -36,142 +27,6 @@ def add_logo_to_sidebar():
         }
         </style>
     """, unsafe_allow_html=True)
-
-# Function to load the prediction model
-@st.cache_resource
-def load_prediction_model():
-    # This is a placeholder function that would normally load a trained model
-    # For demonstration, we'll create a simple model that returns a base prediction
-    # that will be adjusted based on game characteristics
-    class DummyModel:
-        def predict(self, X):
-            # Return a base value that will be adjusted by game characteristics
-            return [6.5]  # Base value of 6.5 (average rating)
-    
-    return DummyModel()
-
-# List of common game mechanics
-GAME_MECHANICS = [
-    'i cut you choose', 'map addition', 'customizable games', 'delayed purchase', 
-    'hand management', 'roles with asymmetric information', 'alliances', 'modular board', 
-    
-]
-
-# List of common game domains
-GAME_DOMAINS = [
-    'strategy games', 'family games', 'party games', 'abstract games', 
-    'thematic games', 'wargames', "children's games", 'customizable games',
-    'unspecified domain'
-]
-
-# Function to predict rating based on user inputs - IMPROVED
-def predict_game_rating(model, input_data):
-    import numpy as np
-    
-    # Convert input data to DataFrame
-    input_df = pd.DataFrame([input_data])
-    
-    # Add all missing mechanics columns with default value 0
-    for mechanic in GAME_MECHANICS:
-        if mechanic not in input_df.columns:
-            input_df[mechanic] = 0
-    
-    # Add other required columns if missing
-    required_columns = [
-        'ID', 'bgg_rank', 'owned_users', 'users_rated', 'game_age'
-    ]
-    
-    for col in required_columns:
-        if col not in input_df.columns:
-            input_df[col] = 0  # Default value
-    
-    # Make prediction
-    try:
-        # Base prediction from model
-        base_prediction = model.predict(input_df)[0]
-        
-        # Influence factors to create more variety in predictions
-        complexity_factor = input_data['complexity_average'] / 5.0  # Normalize between 0 and 1
-        mechanics_count = sum(1 for m in GAME_MECHANICS if input_data.get(m, 0) == 1)
-        mechanics_factor = min(mechanics_count / 10, 1.0)  # Normalize, max at 1
-        
-        # Player count factors
-        min_players = input_data['min_players']
-        max_players = input_data['max_players']
-        player_range = max_players - min_players
-        player_range_factor = min(player_range / 10, 1.0)  # Normalize, max at 1
-        
-        # Play time factor
-        play_time = input_data['play_time']
-        play_time_factor = min(play_time / 240, 1.0)  # Normalize, max at 1
-        
-        # Age factor
-        min_age = input_data['min_age']
-        age_factor = min(min_age / 70, 1.0)  # Normalize, max at 1
-        
-        # Domains that generally influence ratings positively or negatively
-        domain_factors = {
-            'strategy games': 0.8,
-            'family games': 0.4,
-            'party games': -0.2,
-            'abstract games': 0.5,
-            'thematic games': 0.7,
-            'wargames': 0.6,
-            "children's games": -0.5,
-            'customizable games': 0.9,
-            'unspecified domain': 0
-        }
-        
-        # Find the selected domain
-        selected_domain = next((d for d in GAME_DOMAINS if input_data.get(d, 0) == 1), None)
-        domain_factor = domain_factors.get(selected_domain, 0)
-        
-        # Mechanics that tend to be well-rated
-        good_mechanics = ['worker placement', 'deck construction', 'cooperative game', 
-                         'variable player powers', 'legacy game']
-        good_mechanics_factor = sum(0.3 for m in good_mechanics if input_data.get(m, 0) == 1) / len(good_mechanics)
-        
-        # Apply adjustments to base prediction
-        final_prediction = base_prediction
-        
-        # Adjust based on complexity (higher complexity generally means higher ratings for strategy games)
-        if selected_domain == 'strategy games':
-            final_prediction += complexity_factor * 1.2
-        elif selected_domain == "children's games":
-            final_prediction -= complexity_factor * 0.8  # Simpler is better for children's games
-        else:
-            final_prediction += (complexity_factor - 0.5) * 0.6  # Moderate complexity is best for most games
-        
-        # Adjust based on domain
-        final_prediction += domain_factor
-        
-        # Adjust based on mechanics
-        final_prediction += good_mechanics_factor * 0.8
-        
-        # Adjust based on player count range (more flexible games tend to rate higher)
-        final_prediction += player_range_factor * 0.4
-        
-        # Adjust based on play time (medium length games tend to rate higher)
-        if play_time < 30:
-            final_prediction -= 0.3  # Too short
-        elif play_time > 180:
-            final_prediction -= 0.5  # Too long
-        else:
-            final_prediction += (1 - abs(play_time - 90) / 90) * 0.5  # Optimal around 90 minutes
-        
-        # Adjust based on age (games for older players tend to rate higher)
-        if min_age < 12:
-            final_prediction -= 0.2
-        elif min_age > 16:
-            final_prediction += 0.3
-        
-        # Ensure rating stays within bounds (1-10)
-        final_prediction = max(1.0, min(10.0, final_prediction))
-        
-        return final_prediction
-    except Exception as e:
-        st.error(f"Error making prediction: {e}")
-        return None
 
 def create_home_page_css():
     return """
@@ -697,9 +552,7 @@ def create_home_page_css():
     </style>
     """
 
-
-
-# Function to create an improved rating gauge visualization
+# Function to create an rating gauge visualization
 def create_improved_rating_gauge(rating):
     # Define color scheme for the gauge
     colors = {
@@ -838,53 +691,51 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # Main content box with magical styling - Using HTML component for better rendering
         magical_story_html = """
-        <div style="background: linear-gradient(135deg, #1a0033, #3a0066, #1a0033); border-radius: 15px; padding: 2.5rem; color: #fff; box-shadow: 0 8px 32px rgba(78, 0, 146, 0.5), inset 0 0 80px rgba(180, 120, 255, 0.2); margin: 1rem auto; max-width: 800px; position: relative; overflow: hidden; font-family: 'Cinzel', serif; letter-spacing: 0.5px; line-height: 1.8;">
-            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 20%; left: 10%; animation: float 6s infinite;"></div>
-            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 30%; left: 85%; animation: float 6s infinite 1s;"></div>
-            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 70%; left: 20%; animation: float 6s infinite 2s;"></div>
-            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 80%; left: 75%; animation: float 6s infinite 3s;"></div>
-            <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 40%; left: 50%; animation: float 6s infinite 4s;"></div>
-            
-            <h2 style="font-family: 'Cinzel', serif; font-size: 2.2rem; font-weight: 700; margin-bottom: 1.5rem; text-align: center; position: relative; z-index: 1; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; color: white;">
-                <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🧙‍♂️</span> The Quest for the Legendary Game
-            </h2>
-            
-            <div style="position: relative; z-index: 1; font-size: 1.15rem; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); font-weight: 400;">
-                <p>In a kingdom where board games reign supreme, you are the <span style="background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3)); padding: 0 5px; border-radius: 4px; font-weight: 600; color: #f0e6ff;">Archmage of Gaming</span>, the greatest game creator of all time. The King has entrusted you with a crucial mission: create a game so extraordinary that it will unite all the peoples of the kingdom.</p>
-                
-                <p>But beware! Many paths lie before you, and only one combination of mechanics, complexity, and theme will lead you to success. Fortunately, you possess a magical artifact: <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🔮</span> the <span style="background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3)); padding: 0 5px; border-radius: 4px; font-weight: 600; color: #f0e6ff;">Orb of Prediction</span> <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">✨</span></p>
-                
-                <p>With this mystical orb, you can:</p>
-                
-                <ul style="list-style-type: none; padding-left: 1rem; margin: 1.5rem 0;">
-                    <li style="margin-bottom: 1rem; position: relative; padding-left: 2rem;">
-                        <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🧪</span> Test different magical formulas before spending your precious development resources
-                    </li>
-                    <li style="margin-bottom: 1rem; position: relative; padding-left: 2rem;">
-                        <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">⚔️</span> Optimize your creation's characteristics to maximize its appeal to players
-                    </li>
-                    <li style="margin-bottom: 1rem; position: relative; padding-left: 2rem;">
-                        <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🏆</span> Compare your game to market expectations and existing legends
-                    </li>
-                </ul>
-                
-                <p>For example, your visions reveal that a strategy game with worker placement mechanics, medium complexity, and a 60-minute play time could attract more followers than a simple party game based on random dice rolls.</p>
-                
-                <p>Do you dare consult the Orb of Prediction and begin your quest to create the perfect game? <span style="display: inline-block; margin: 0 5px; font-size: 1.4rem;">🌟</span></p>
-            </div>
-        </div>
-        <style>
-        @keyframes float {
-            0% { transform: translateY(0) scale(1); opacity: 0; }
-            25% { transform: translateY(-20px) scale(1.2); opacity: 1; }
-            50% { transform: translateY(-40px) scale(1); opacity: 0.6; }
-            75% { transform: translateY(-60px) scale(1.2); opacity: 0.3; }
-            100% { transform: translateY(-80px) scale(1); opacity: 0; }
-        }
-        </style>
-        """
+<div style="background: linear-gradient(135deg, #1a0033, #3a0066, #1a0033); border-radius: 15px; padding: 2.5rem; color: #fff; box-shadow: 0 8px 32px rgba(78, 0, 146, 0.5), inset 0 0 80px rgba(180, 120, 255, 0.2); margin: 1rem auto; max-width: 850px; position: relative; overflow: hidden; font-family: 'Cinzel', serif; letter-spacing: 0.5px; line-height: 1.7;">
+    <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 20%; left: 10%; animation: float 6s infinite;"></div>
+    <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 30%; left: 85%; animation: float 6s infinite 1s;"></div>
+    <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 70%; left: 20%; animation: float 6s infinite 2s;"></div>
+    <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 80%; left: 75%; animation: float 6s infinite 3s;"></div>
+    <div style="position: absolute; width: 3px; height: 3px; border-radius: 50%; background-color: white; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); top: 40%; left: 50%; animation: float 6s infinite 4s;"></div>
+    
+    <h2 style="font-family: 'Cinzel', serif; font-size: 1.7rem; font-weight: 700; margin-bottom: 1.2rem; text-align: center; position: relative; z-index: 1; letter-spacing: 1px; color: white; white-space: nowrap;">
+        <span style="display: inline-block; margin-right: 10px; font-size: 1.3rem;">🧙‍♂️</span> The Quest for the Legendary Game
+    </h2>
+    
+    <div style="position: relative; z-index: 1; font-size: 1rem; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); font-weight: 400;">
+        <p>In a kingdom where board games reign supreme, you are the <span style="background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3)); padding: 0 5px; border-radius: 4px; font-weight: 600; color: #f0e6ff;">Archmage of Gaming</span>, the greatest game creator of all time. The King has entrusted you with a crucial mission: create a game so extraordinary that it will unite all the peoples of the kingdom.</p>
+        
+        <p>But beware! Many paths lie before you, and only one combination of mechanics, complexity, and theme will lead you to success. Fortunately, you possess a magical artifact: <span style="display: inline-block; margin: 0 5px; font-size: 1.2rem;">🔮</span> the <span style="background: linear-gradient(120deg, rgba(180, 120, 255, 0.2), rgba(140, 80, 255, 0.3)); padding: 0 5px; border-radius: 4px; font-weight: 600; color: #f0e6ff;">Orb of Prediction</span> <span style="display: inline-block; margin: 0 5px; font-size: 1.2rem;">✨</span></p>
+        
+        <p>With this mystical orb, you can:</p>
+        
+        <ul style="list-style-type: none; padding-left: 0; margin: 1.2rem 0;">
+            <li style="margin-bottom: 0.8rem; display: flex; align-items: flex-start;">
+                <span style="display: inline-block; margin-right: 10px; font-size: 1.2rem; flex-shrink: 0;">🧪</span> 
+                <span>Test different magical formulas before spending your precious development resources</span>
+            </li>
+            <li style="margin-bottom: 0.8rem; display: flex; align-items: flex-start;">
+                <span style="display: inline-block; margin-right: 10px; font-size: 1.2rem; flex-shrink: 0;">⚔️</span> 
+                <span>Optimize your creation's characteristics to maximize its appeal to players</span>
+            </li>
+            <li style="margin-bottom: 0.8rem; display: flex; align-items: flex-start;">
+                <span style="display: inline-block; margin-right: 10px; font-size: 1.2rem; flex-shrink: 0;">🏆</span> 
+                <span>Compare your game to market expectations and existing legends</span>
+            </li>
+        </ul>
+    </div>
+</div>
+<style>
+@keyframes float {
+    0% { transform: translateY(0) scale(1); opacity: 0; }
+    25% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+    50% { transform: translateY(-40px) scale(1); opacity: 0.6; }
+    75% { transform: translateY(-60px) scale(1.2); opacity: 0.3; }
+    100% { transform: translateY(-80px) scale(1); opacity: 0; }
+}
+</style>
+"""
         
         # Use the html component to render the magical story
         html(magical_story_html, height=600)
@@ -1032,31 +883,11 @@ def main():
             # Store the new characteristics
             st.session_state.game_characteristics = current_characteristics
             
-            # Prepare input data for prediction with fixed values instead of random
-            # Create a dictionary with input data
-            input_data = {
-                # Basic game characteristics
-                min_players_col: min_players,
-                max_players_col: max_players,
-                play_time_col: play_time,
-                min_age_col: min_age,
-                complexity_col: complexity,
-                
-                # Add missing columns required by the model with fixed values
-                'ID': 500,  # Fixed ID instead of random
-                'bgg_rank': 2500,  # Fixed rank instead of random
-                'owned_users': 25000,  # Fixed number instead of random
-                'users_rated': 5000,  # Fixed number instead of random
-                'game_age': 5  # Fixed game age instead of random
-            }
-            
-            # Set selected domain to 1, others to 0
-            for domain in GAME_DOMAINS:
-                input_data[domain] = 1 if domain == selected_domain else 0
-            
-            # Set selected mechanics to 1, others to 0
-            for mechanic in common_mechanics:
-                input_data[mechanic] = 1 if mechanic in selected_mechanics else 0
+            # Prepare input data for prediction
+            input_data = prepare_input_data(
+                min_players, max_players, play_time, min_age, 
+                complexity, selected_domain, selected_mechanics, common_mechanics
+            )
             
             # Make prediction
             predicted_rating = predict_game_rating(model, input_data)
