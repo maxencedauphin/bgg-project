@@ -28,11 +28,17 @@ def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Index, pd.Index]:
     df['game_age'] = current_year - df['year_published']
 
     # Dropping unnecessary columns
-    columns_to_drop = ['id', 'name', 'year_published']
+    columns_to_drop = ['id',
+                       'name',
+                       'year_published',
+                       'owned_users',
+                       'bgg_rank',
+                       'game_age',
+                       'users_rated']
     df.drop(columns=columns_to_drop, inplace=True)
 
     # Drop NaN in owned_users column
-    df = df[df['owned_users'].notna()]
+    # df = df[df['owned_users'].notna()]
 
     # Impute missing values for mechanics and domains "unspecified"
     df["mechanics"] = df["mechanics"].fillna("unspecified mechanic")
