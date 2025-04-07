@@ -312,3 +312,9 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,visualstudiocode
+/.idea/.gitignore
+/.idea/bgg-project.iml
+/.idea/misc.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/models/pipeline_baseline.pkl
+/.idea/vcs.xml

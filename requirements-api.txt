@@ -1,0 +1,13 @@
+##############################################################################################
+### Only the packages that are really needed for FASTAPI to limit the size of the Docker image
+##############################################################################################
+
+#API
+fastapi
+uvicorn
+requests
+
+#ML
+numpy
+pandas
+scikit-learn

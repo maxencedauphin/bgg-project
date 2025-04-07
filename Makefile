@@ -2,11 +2,16 @@
 #################### PACKAGE ACTIONS ###################
 reinstall_package:
 	@pip uninstall -y bgg_project || :
-	@pip install -e .
+	@pip install --trusted-host=pypi.org --trusted-host=files.pythonhosted.org -e .
 
+main:
+	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train("all_models")'
 
-run main:
-	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train()'
+xgboost:
+	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train("xgboost")'
+
+xgboost_grid:
+	python -c 'from bgg_project.interface.main import preprocess_and_train; preprocess_and_train("xgboost_grid")'
 
 #########
 ### DOCKER LOCAL
@@ -16,7 +21,7 @@ build_container_local:
 	docker build --tag=$$IMAGE:dev .
 
 run_container_local:
-	docker run -it -e PORT=8000 -p 8000:8000 $$IMAGE:dev
+	docker run -it -e PORT=8000 -p 8000:8000 -p 8501:8501 $$IMAGE:dev
 
 #########
 ## DOCKER DEPLOYMENT
