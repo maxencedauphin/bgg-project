@@ -106,6 +106,41 @@ def predict_game_rating(model, input_data):
         print(f"Error during prediction: {e}")
         raise e
 
+def load_prediction_from_remote(year_published: int, player_min: int, player_max: int, play_time_min: int, age_min: int, complexity: float, mechanics: list[str], domains: str) :
+    params={
+        'player_min': player_min,
+        'player_max': player_max,
+        'play_time': play_time_min,
+        'age_min': age_min,
+        'complexity': complexity,
+        'mechanics': mechanics,
+        'domains': domains
+    }
+    url='https://apibgg-942635860173.europe-west1.run.app/predict'
+
+    try:
+        response = requests.get(url=url, params=params, timeout=5)
+        if response.status_code == 200:
+            return response.json()['prediction']
+        elif response.status_code == 422:
+            print("Request failed:", response.status_code)
+            print(response.json())
+            return None
+        else:
+            print("Request failed:", response.status_code)
+            print(response.text)
+            return None
+
+    except requests.exceptions.ConnectionError:
+        st.error("Prediction service is not available. Please try again later.")
+        return None
+    except requests.exceptions.Timeout:
+        st.error("Request to prediction service timed out.")
+        return None
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+        return None
+
 def prepare_input_data(min_players, max_players, play_time, min_age, complexity, selected_domain, selected_mechanics, common_mechanics=None):
     """Prepares input data for prediction"""
     # If common_mechanics is not provided, use GAME_MECHANICS
