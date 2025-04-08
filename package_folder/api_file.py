@@ -1,50 +1,77 @@
 from fastapi import FastAPI, Query
 from typing import List
-from enum import Enum
 import pickle
 import pandas as pd
 import os
-from datetime import datetime
+from typing import List, Literal
 
 
 app = FastAPI(debug=True)
 
 # Model path
 models_path = os.path.expanduser("models")
-pickle_file_path = os.path.join(models_path, "pipeline_baseline.pkl")
+pickle_file_path = os.path.join(models_path, "all_models_20250407-200439.pkl")
 
 # Load the model
 with open(pickle_file_path, "rb") as file:
     model = pickle.load(file)
 
 
+# Valid strings to introduce as domains input data from user
+DomainType = Literal[
+    'strategy games', 'family games', 'party games', 'abstract games',
+    'thematic games', 'wargames', "children's games", 'customizable games',
+    'unspecified domain'
+]
 
-# Valid numbers to introduce as year_published input data from user
-valid_years = [ 2017.,  2015.,  2018.,  2016.,  2020.,  2005.,  2012.,  2011.,
-        2013.,  2007.,  2019.,  2014.,  2002.,  2004.,  2008.,  2006.,
-        2010.,  1876.,  1995.,  2009.,  1997.,  1982.,  1999.,  1993.,
-        1991., -2200.,  2000.,  2003.,  1986.,  1998.,  1992.,  1996.,
-        1964.,  1979.,  1980.,  1985.,  1994.,  1475.,  2001.,  1990.,
-        1983.,  1989.,  1959.,  1630.,  1977.,  1800.,  1925.,  1984.,
-        1850.,  1988.,  1810.,     0.,  1987.,  1971.,  1978., -3000.,
-        1587.,  1981.,   762.,  1973.,  1974.,  1962.,  2021.,  1848.,
-        1903.,  1938.,  1947.,  1948.,  1960.,  1895.,  1930.,  1972.,
-        1976.,  1906.,  1967.,  1745.,  1864.,  1970.,  1946.,   400.,
-        1883.,  1965.,  1975.,  1966.,  1425.,  1701.,  1969.,  1939.,
-        1600.,  1942.,  1909.,  1904.,  1932.,  1963.,   700.,  1968.,
-        1780.,  1921.,  1663.,  1870.,  1956.,  1951.,  1715.,   550.,
-        1885.,  1955.,  1860.,  1830.,  1796.,  1887.,  1889.,  1890.,
-        1680.,  1953.,  1958.,  1954.,  1802., -3500.,  1937.,  1700.,
-        1892.,  1949., -2600.,  1911.,  1881.,  2022.,  1943.,  1534.,
-        1950.,  1824.,  1000.,  1910.,  1913.,  1961.,  1742.,   600.,
-        1915.,  1300.,  1940.,  1900.,  1941.,  1945.,  1952.,  1783.,
-        1775.,  1899.,  1825.,  1919.,  1441.,   650.,  1400.,  1936.,
-        1929.,  -100.,  1801.,   500.,  1840.,  1741.,  1803.,  1933.,
-        1935.,  1755.,  1908.,  1884.,  1934.,  1819.,  1957., -1400.,
-        1500.,  1125.,  1931.,  1888.,  1851.,  1927.,  1861.,  1550.,
-        1750.,  1920.,  1916.,  1530.,  1866.,  1893.,  1855.,  1687.,
-        1150.,  1874.,  -200., -1300.]
-
+# Valid strings to introduce as mechanics input data from user
+MechanicType = Literal[
+    'area majority / influence', 'take that', 'player elimination',
+    'auction/bidding', 'pattern building', 'variable player powers',
+    'cooperative game', 'modular board', 'simultaneous action selection',
+    'deck construction', 'push your luck', 'grid movement',
+    'worker placement', 'area movement', 'tile placement', 'dice rolling',
+    'card drafting', 'hand management', 'set collection',
+    'hidden movement', 'betting and bluffing', 'deduction', 'slide',
+    'turn order: claim action', 'force commitment', 'auction: fixed placement',
+    'movement points', 'zone of control', 'paper-and-pencil', 'spin and move',
+    'traitor game', 'communication limits', 'programmed movement', 'order counters',
+    'moving multiple units', 'auction: once around', 'tech tracks', 'crayon rail system',
+    'auction', 'closed economy auction', 'trading', 'auction: dexterity',
+    'die icon resolution', 'lose a turn', 'track movement', 'elapsed real time ending',
+    'singing', 'move through deck', 'square grid', 'automatic resource growth',
+    'enclosure', 'map reduction', 'turn order: progressive', 'melding and splaying',
+    'role playing', 'event', 'catch the leader', 'bidding', 'voting', 'action queue',
+    'static capture', 'ratio', 'solitaire game', 'battle card driven', 'action retrieval',
+    'narrative choice', 'relative movement', 'finale ending', 'tech trees', 'stock holding',
+    'induction', 'rock-paper-scissors', 'unspecified mechanic', 'matching', 'physical removal',
+    'delayed purchase', 'pattern recognition', 'cube tower', 'turn order: random', 'push',
+    'speed matching', 'king of the hill', 'layering', 'different worker types',
+    'variable phase order', 'pattern movement', 'resource to move', 'solo', 'area-impulse',
+    'passed action token', 'chaining', 'once-per-game abilities', 'trick-taking',
+    'pieces as map', 'turn order: role order', 'chit-pull system', 'different dice movement',
+    'legacy game', "prisoner's dilemma", 'stat check resolution', 'memory', 'action points',
+    'impulse movement', 'mission', 'storytelling', 'line of sight', 'score-and-reset game',
+    'campaign', 'paragraph', 'pick-up and deliver', 'real-time', 'roles with asymmetric information',
+    'team-based game', 'combat results table', 'turn order: stat-based', 'hidden roles',
+    'semi-cooperative game', 'income', 'network and route building', 'three dimensional movement',
+    'command cards', 'deck bag and pool building', 'turn order: auction', 'flicking',
+    'selection order bid', 'auction: english', 'hexagon grid', 'line drawing', 'tug of war',
+    'victory points as a resource', 'commodity speculation', 'random production', 'campaign game',
+    'bingo', 'increase value of unchosen resources', 'movement template', 'highest-lowest scoring',
+    'constrained bidding', 'loans', 'targeted clues', 'auction: dutch', 'negotiation',
+    'auction: dutch priority', 'multiple-lot auction', 'ladder climbing', 'secret unit deployment',
+    'scenario', 'kill steal', 'follow', 'predictive bid', 'action drafting', 'market', 'bias',
+    'race', 'time track', 'player judge', 'drafting', 'action timer', 'map deformation',
+    'measurement movement', 'simulation', 'acting', 'grid coverage', 'minimap resolution',
+    'auction: turn order until pass', 'variable set-up', 'influence', 'end game bonuses',
+    'map addition', 're-rolling and locking', 'worker placement with dice workers', 'mancala',
+    'point to point movement', 'multiple maps', 'alliances', 'i cut you choose', 'single loser game',
+    'ownership', 'sudden death ending', 'rondel', 'investment', 'critical hits and failures',
+    'bribery', 'connections', 'hidden victory points', 'hot potato', 'roll', 'interrupts',
+    'advantage token', 'card play conflict resolution', 'contracts', 'events',
+    'turn order: pass order', 'stacking and balancing', 'auction: sealed bid', 'action'
+]
 
 
 @app.get('/')
@@ -53,18 +80,14 @@ def root():
 
 @app.get('/predict')
 def predict(
-    year_published: int = Query(..., ge=-3000, le=3000, title='Year published', description='Year when game was published'),
-    min_players: int = Query(1, ge=1, le=100, title="Player Min", description="Minimum player value"),
-    max_players: int = Query(1, ge=1, le=99, title='Player Max', description='Maximum player value'),
-    play_time: int = Query(30, ge=0, le=99999, title='Play time', description='Play time'),
-    min_age: int = Query(6, ge=1, le=99, title='Age', description='Minimum age'),
-    complexity: int = Query(1, ge=1, le=5, title='Complexity', description='Complexity level from 1 to 5'),
-    mechanics: List[str] = Query([], title='Mechanics', description='List of used mechanics')
+    min_players: int = Query(..., ge=1, le=8, title="Player Min", description="Minimum player value"),
+    max_players: int = Query(..., ge=2, le=20, title='Player Max', description='Maximum player value'),
+    play_time: int = Query(..., ge=1, le=240, title='Play time', description='Play time'),
+    min_age: int = Query(..., ge=1, le=99, title='Age', description='Minimum age'),
+    complexity: float = Query(..., ge=1, le=5, title='Complexity', description='Complexity level from 1 to 5'),
+    domains: List[DomainType] = Query([], title='Domain', description='List of used domains'),
+    mechanics: List[MechanicType] = Query([], title='Mechanics', description='List of used mechanics')
 ):
-
-    # Validate the year_published input data value
-    if year_published not in valid_years:
-        return {"ERROR": "year_published is not valid"}
 
     # Maximum number of players has to be equal or higher than Minimum number of players
     if min_players > max_players:
@@ -72,23 +95,23 @@ def predict(
 
     # Build user input data as a DataFrame
     user_input_data = pd.DataFrame([{
-        "year_published": year_published,
         "min_players": min_players,
         "max_players": max_players,
         "play_time": play_time,
         "min_age": min_age,
         "complexity_average": complexity,
+        "domains": ", ".join(domains),
+        "mechanics": ", ".join(mechanics),
     }])
+
 
 # To make a prediction, the model must have as input the same number of features/columns filled as those used to train it
 
     # Build model input data as a DataFrame to send to the model
-    model_input_data = pd.DataFrame([{
-    }])
+    #model_input_data = pd.DataFrame([{
+    #}])
+    model_input_data = user_input_data.copy()
 
-
-    # Calculating the age of the game
-    game_age = datetime.now().year - year_published
 
     required_columns = model.feature_names_in_  # Storing all the names of the model features/columns (used to train the model) in the required_columns variable
                                                 # Only works for scikit-learn model
@@ -112,17 +135,21 @@ def predict(
     print("Model_input_data ----------------------------------------------------------------------------------------")
     print(model_input_data.columns)
 
+
+    # Update the domains features provided by the user
+    for dom in domains:
+        if dom in required_columns:
+            model_input_data[dom] = 1
+
     # Update the mechanics features provided by the user
     for mech in mechanics:
         if mech in required_columns:
             #model_input_data.loc[:, mech] = 1
             model_input_data[mech] = 1  # Mark mechanic as present in the input (1 if present in input given by user)
 
-    # Asigned the age of the game we are trying to predict to the 'game_age' column
-    model_input_data['game_age'] = game_age
 
     # Print the list of input data columns with the mechanics features provided by the user updated
-    print("Model_input_data ----------------------------------------------------------------------------------------")
+    print("Final input for model ----------------------------------------------------------------------------------------")
     print(model_input_data)
 
     # Make the prediction
