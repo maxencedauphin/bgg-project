@@ -1,6 +1,7 @@
 # Manual added ignores:
 ###### START #######
 raw_data
+models
 ###### END #######
 
 
@@ -244,6 +245,7 @@ celerybeat.pid
 
 # Environments
 .env
+.envrc
 .venv
 env/
 venv/
