@@ -1,9 +1,6 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 from streamlit.components.v1 import html
-import os
 
 # Importer les fonctions de prédiction depuis le nouveau fichier
 from prediction import (
