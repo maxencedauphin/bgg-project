@@ -59,7 +59,7 @@ The following commands you have to run only one timer per GCP
 make allow_docker_push
 ```
 ```shell
-make create_artefacts_repo
+make create_artifacts_repo
 ```
 
 ### Create new image on GCP
