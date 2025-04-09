@@ -1,7 +1,6 @@
 import pandas as pd
-import pickle
-from pathlib import Path
 import streamlit as st
+import requests
 
 # Complete list of all game mechanics expected by the model
 GAME_MECHANICS = [
@@ -60,24 +59,24 @@ GAME_DOMAINS = [
     'unspecified domain'
 ]
 
-@st.cache_resource
-def load_prediction_model():
-    """Loads the optimized XGBoost model for prediction"""
-    base_dir = Path(__file__).resolve().parent
-    model_path = base_dir / "xgboost_optimised.pkl"
-    
-    if not model_path.exists():
-        st.error("Model not found. Check that the xgboost_optimised.pkl file exists.")
-        return None
-
-    try:
-        with open(model_path, 'rb') as f:
-            pipeline = pickle.load(f)
-            print(f"Model successfully loaded from {model_path}")
-        return pipeline, {}
-    except Exception as e:
-        st.error(f"Error loading the model: {e}")
-        return None
+# @st.cache_resource
+# def load_prediction_model():
+#     """Loads the optimized XGBoost model for prediction"""
+#     base_dir = Path(__file__).resolve().parent
+#     model_path = base_dir / "xgboost_optimised.pkl"
+#
+#     if not model_path.exists():
+#         st.error("Model not found. Check that the xgboost_optimised.pkl file exists.")
+#         return None
+#
+#     try:
+#         with open(model_path, 'rb') as f:
+#             pipeline = pickle.load(f)
+#             print(f"Model successfully loaded from {model_path}")
+#         return pipeline, {}
+#     except Exception as e:
+#         st.error(f"Error loading the model: {e}")
+#         return None
 
 def predict_game_rating(model, input_data):
     """Predicts the rating of a board game based on its characteristics"""
@@ -105,6 +104,42 @@ def predict_game_rating(model, input_data):
     except Exception as e:
         print(f"Error during prediction: {e}")
         raise e
+
+def load_prediction_from_remote(player_min: int, player_max: int, play_time_min: int, age_min: int, complexity: float, domains: list[str], mechanics: list[str]) :
+    params={
+        'min_players': player_min,
+        'max_players': player_max,
+        'play_time': play_time_min,
+        'min_age': age_min,
+        'complexity': complexity,
+        'domains': domains,
+        'mechanics': mechanics
+    }
+    url='https://apibgg-942635860173.europe-west1.run.app/predict'
+    #url='http://127.0.0.1:8000/predict'
+
+    try:
+        response = requests.get(url=url, params=params, timeout=30)
+        if response.status_code == 200:
+            return response.json()['prediction']
+        elif response.status_code == 422:
+            print("Request failed:", response.status_code)
+            print(response.json())
+            return None
+        else:
+            print("Request failed:", response.status_code)
+            print(response.text)
+            return None
+
+    except requests.exceptions.ConnectionError:
+        st.error("Prediction service is not available. Please try again later.")
+        return None
+    except requests.exceptions.Timeout:
+        st.error("Request to prediction service timed out.")
+        return None
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+        return None
 
 def prepare_input_data(min_players, max_players, play_time, min_age, complexity, selected_domain, selected_mechanics, common_mechanics=None):
     """Prepares input data for prediction"""

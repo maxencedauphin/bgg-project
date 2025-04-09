@@ -1,17 +1,14 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 from streamlit.components.v1 import html
-import os
 
 # Importer les fonctions de prédiction depuis le nouveau fichier
 from prediction import (
-    load_prediction_model, 
-    predict_game_rating, 
+    # load_prediction_model,
+    predict_game_rating,
     prepare_input_data,
     GAME_MECHANICS,
-    GAME_DOMAINS
+    GAME_DOMAINS, load_prediction_from_remote
 )
 
 # Function to add the Le Wagon logo to the sidebar
@@ -665,7 +662,7 @@ def main():
     min_age_col = 'min_age'
     
     # Load model
-    model = load_prediction_model()
+    #model = load_prediction_model()
 
     # HOME PAGE
     if st.session_state.page == "Home":
@@ -821,7 +818,7 @@ def main():
             # Define default values for sliders
             min_players_min, min_players_max = 1, 8
             max_players_min, max_players_max = 2, 20
-            play_time_min, play_time_max = 10, 240
+            play_time_min, play_time_max = 1, 240
             
             # First column inputs
             with col1:
@@ -830,13 +827,13 @@ def main():
                                        help="Minimum number of players required for the game")
                 max_players = st.slider("Max Players", max_players_min, max_players_max, 4,
                                        help="Maximum number of players supported by the game")
-                play_time = st.slider("Play Time (minutes)", play_time_min, play_time_max, 60, step=10,
+                play_time = st.slider("Play Time (minutes)", play_time_min, play_time_max, 60, step=1,
                                      help="Average time to complete one game")
             
             # Second column inputs
             with col2:
                 # Changed "Min Age" to "Age" and range from 0-18 to 10-70
-                min_age = st.slider("Age", 10, 70, 8, 
+                min_age = st.slider("Age", 10, 70, 0,
                                    help="Minimum recommended age for players")
                 complexity = st.slider("Complexity Average", 1.0, 5.0, 2.5, step=0.1,
                                       help="How complex the game is (1=simple, 5=complex)")
@@ -850,16 +847,12 @@ def main():
             st.write("Select the mechanics that apply to your game:")
             
             # List of common mechanics for the multi-select
-            common_mechanics = [
-                'dice rolling', 'card drafting', 'hand management', 'set collection',
-                'worker placement', 'area majority', 'tile placement', 'cooperative game',
-                'variable player powers', 'deck construction', 'push your luck'
-            ]
+            common_mechanics = GAME_MECHANICS
             
             selected_mechanics = st.multiselect(
                 "Common Game Mechanics",
                 options=common_mechanics,
-                default=['dice rolling', 'card drafting'],
+                #default=['dice rolling', 'card drafting'],
                 help="Select multiple mechanics that apply to your game"
             )            
                         
@@ -885,12 +878,14 @@ def main():
             
             # Prepare input data for prediction
             input_data = prepare_input_data(
-                min_players, max_players, play_time, min_age, 
+                min_players, max_players, play_time, min_age,
                 complexity, selected_domain, selected_mechanics, common_mechanics
             )
+
+            predicted_rating = load_prediction_from_remote(min_players, max_players, play_time, min_age, complexity, selected_domain, selected_mechanics)
             
             # Make prediction
-            predicted_rating = predict_game_rating(model, input_data)
+            #predicted_rating = predict_game_rating(model, input_data)
             
             # Store the prediction in session state
             if predicted_rating is not None:

@@ -8,23 +8,28 @@ The "Board Game Analysis" project aims to explore and analyze data from BoardGam
 *Attribution*: This package uses data from BoardGameGeek. We acknowledge and appreciate their contribution to the board gaming community. Please ensure that any public-facing use of this package includes attribution to BoardGameGeek as the source of the data and includes the BoardGameGeek logo linked back to https://boardgamegeek.com.
 
 
-## Start API locally (in development)
+## Start 🔌 API & 🖥️ GUI *locally* (👉 development)
 
 ### Setup (only once)
-You need to install Uvicorn if you're running it for the first time:
+You need to install Uvicorn if you're running it for the first time.
+This is done via the *Make* file *reinstall_package*:
 ```shell
 pip install uvicorn
 ```
 
-Then you can start the API from within the `package_folder` folder:
+Than you can call the REST API service (FastAPI) and the GUI service (Streamlit)
 
-### Start DEV 
+Start the **FastAPI** app in your terminal
 ```shell
-uvicorn package_folder.api_file:app --reload &&
-streamlit run app.py   
+uvicorn package_folder.api_file:app --reload
 ```
 
-## Start the API container image in Docker or GCP
+Start the **Streamlit** app in your terminal
+```shell
+streamlit run streamlit/app.py   
+```
+
+## Start the 🔌 API container image in Docker or GCP
 
 ### Start containter local into Docker
 Create a `.env` file with parameters of your GC:  
@@ -54,7 +59,7 @@ The following commands you have to run only one timer per GCP
 make allow_docker_push
 ```
 ```shell
-make create_artefacts_repo
+make create_artifacts_repo
 ```
 
 ### Create new image on GCP
@@ -84,15 +89,32 @@ These commands depend on your OS.
 After the deployment command, you can access the GCP version with the link like this e.g.: `https://apibgg-{name of our GCP}.europe-west1.run.app/docs`
 ![GCP-doc](/docs/images/gcp-doc.png)
 
-### Start streamlit App in the Cloud
+## Start 🖥️ GUI Streamlit App in the Cloud
 To launch the Streamlit app in the Streamlit Cloud, follow these steps:
 * Ensure you have a running GCP API with the imported ML model.
-* Update the URI in the Streamlit app's source code to point to the GCP API.
+* **Update the URI** in the Streamlit app's source code to point to the GCP API.
 * Have admin access to the GitHub repository of the Streamlit application.
   If you don't have the necessary rights, you can fork the project on GitHub.
   (Fork either all branches or just the master branch, depending on your needs.)  
   ⚠️ Important: Use the forked repository solely for Streamlit deployment purposes.
   Do not modify or commit code changes to this repository.
 * 🏁 Create the Streamlit application using the link to your forked repository and selected branch. 🏁
+
+### Create the Streamlit App
+1. If you're not the admin of the repository
+   (you are only a teammate — and not god 😇 or the other kind 😈) create a
+fork on Github ![Fork-Github](/docs/images/fork_github.png)
+
+2. Open the [Streamlit Cloud](https://streamlit.io/cloud) service and "Join Community Cloud"
+3. Create an app (right upper bottom) and choose **GitHub** as a source
+4. Add the value: 
+    * Your own repository (You must give Streamlit Cloud access before)
+    * The branch you want to deploy from
+    * Location of the Streamlit app. ⚠️ Pay attention to whether the application is in a subfolder.
+    * Leave the App URL as it is.
+    * 🚨 Choose the Python version of 3.10 in the "Advanced settings"  
+    ![Streamlit](/docs/images/streamlit_new.png)
+5. Then deploy and enjoy the baked goods 🥐
+
 
 
