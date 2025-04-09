@@ -1,6 +1,4 @@
 import pandas as pd
-import pickle
-from pathlib import Path
 import streamlit as st
 import requests
 
@@ -117,8 +115,8 @@ def load_prediction_from_remote(player_min: int, player_max: int, play_time_min:
         'domains': domains,
         'mechanics': mechanics
     }
-    #url='https://apibgg-942635860173.europe-west1.run.app/predict'
-    url='http://127.0.0.1:8000/predict'
+    url='https://apibgg-942635860173.europe-west1.run.app/predict'
+    #url='http://127.0.0.1:8000/predict'
 
     try:
         response = requests.get(url=url, params=params, timeout=30)
