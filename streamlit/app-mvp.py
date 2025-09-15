@@ -102,11 +102,11 @@ def main():
 
         ### Data Sources:
         - Data collected from BoardGameGeek database 🎲
-        
-        
+
+
         #### Lead TA 👨‍🏫
         - Cynthia Siew-Tu
-        
+
         #### Team members 👨‍💼👩‍💼
         - Maxence Dauphin
         - Mónica Costa
@@ -126,7 +126,7 @@ def load_prediction_from_remote(year_published: int, player_min: int, player_max
         'mechanics': mechanics,
         'domains': domains
     }
-    url='https://apibgg-942635860173.europe-west1.run.app/predict'
+    url=st.secrets['my_url']
 
     try:
         response = requests.get(url=url, params=params, timeout=5)
