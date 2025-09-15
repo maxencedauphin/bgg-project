@@ -116,7 +116,7 @@ def load_prediction_from_remote(player_min: int, player_max: int, play_time_min:
         'domains': domains,
         'mechanics': mechanics
     }
-    url=os.getenv('MY_URL')
+    url=st.secrets['my_url']
     #url='http://127.0.0.1:8000/predict'
 
     try:
