@@ -2,6 +2,8 @@
 import streamlit as st
 import requests
 
+from prediction import (GAME_DOMAINS, GAME_MECHANICS)
+
 # Configure the page appearance and layout
 st.set_page_config(page_title="BGG Project", page_icon="🎲", layout="wide")
 
@@ -57,22 +59,33 @@ def main():
 
             # First column inputs
             with col1:
-                min_players = st.slider("Min Players", 1, 99, 1)
-                max_players = st.slider("Max Players", 1, 99, 1)
-                play_time = st.slider("Play Time (minutes)", 1, 1440, 30, step=10)
+                min_players = st.slider("Min Players", 1, 20, 1)
+                max_players = st.slider("Max Players", 2, 20, 2)
+
 
             # Second column inputs
             with col2:
-                min_age = st.slider("Min Age", 0, 99, 1)
+                min_age = st.slider("Min Age", 1, 99, 1)
                 complexity = st.slider("Complexity Average", 1, 5, 2, step=1)
-                year = st.slider("Year Published", 1950, 2025, 2020)
+                #year = st.slider("Year Published", 1950, 2025, 2020)
+
+            play_time = st.slider("Play Time (minutes)", 1, 260, 30, step=10)
 
             # Full width inputs
-            mechanics = st.text_input("Mechanics (comma-separated)", "Dice Rolling, Card Drafting")
+            common_mechanics = GAME_MECHANICS
 
-            unique_domains = ["Strategy", "Family", "Party", "Abstract", "Thematic", "War", "Customizable"]
+            selected_mechanics = st.multiselect(
+                "Common Game Mechanics",
+                options=common_mechanics,
+                #default=['dice rolling', 'card drafting'],
+                help="Select multiple mechanics that apply to your game"
+            )
+            mechanics = sorted(selected_mechanics) #st.text_input("Mechanics (comma-separated)", "Dice Rolling, Card Drafting")
 
-            selected_domain = st.selectbox("Domain", unique_domains)
+
+            #unique_domains = ["Strategy", "Family", "Party", "Abstract", "Thematic", "War", "Customizable"]
+
+            selected_domain = st.selectbox("Domain", GAME_DOMAINS)
 
             # Submit button
             submitted = st.form_submit_button("Predict Rating")
@@ -80,10 +93,12 @@ def main():
         # Process form submission
         if submitted:
 
-            prediction = load_prediction_from_remote(year, min_players, max_players, play_time, min_age, complexity, mechanics, selected_domain)
+            prediction = load_prediction_from_remote(min_players, max_players, play_time, min_age, complexity, selected_domain, mechanics)
 
             if prediction is not None:
                 st.success(f"Predicted Rating: {prediction:.2f}/10")
+            if max_players < min_players:
+                st.success("Please enter a greater number of max_players (compared to min_players)")
 
 
     # ABOUT PAGE
@@ -115,13 +130,13 @@ def main():
         - Bernhard Riemer
         """)
 
-def load_prediction_from_remote(year_published: int, player_min: int, player_max: int, play_time_min: int, age_min: int, complexity: float, mechanics: list[str], domains: str) :
+def load_prediction_from_remote(player_min: int, player_max: int, play_time_min: int, age_min: int, complexity: float, domains: str, mechanics: list[str]) :
     params={
-        'year_published': year_published,
-        'player_min': player_min,
-        'player_max': player_max,
+        #'year_published': year_published,
+        'min_players': player_min,
+        'max_players': player_max,
         'play_time': play_time_min,
-        'age_min': age_min,
+        'min_age': age_min,
         'complexity': complexity,
         'mechanics': mechanics,
         'domains': domains
